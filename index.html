@@ -3,84 +3,108 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ergünus Maximus Arena Fighter</title>
+<title>Ergünus Maximus Side Scroller</title>
 <style>
-  body { margin:0; background:#000; color:#fff; font-family:Arial; overflow:hidden; }
+  body { margin:0; background:#000; overflow:hidden; font-family:Arial; }
   canvas { display:block; margin:0 auto; background:#111; image-rendering: pixelated; }
-  .hud {
-    position: absolute; left: 0; top: 0; width: 100%;
-    display:flex; justify-content:space-between;
-    padding:10px; font-size:14px;
-    text-shadow:0 0 5px #000;
+  .ui {
+    position:absolute; top:10px; left:10px;
+    color:#fff; font-size:14px;
+    text-shadow:0 0 6px #000;
+    background:rgba(0,0,0,0.4);
+    padding:10px; border-radius:10px;
+    border:1px solid rgba(255,255,255,0.15);
   }
-  .bar {
-    width: 300px; height: 18px;
-    border:2px solid #fff; background:#222;
-    position: relative;
-  }
-  .fill {
-    height:100%; width:100%;
-    background: linear-gradient(90deg, #00ff66, #ffcc00, #ff0033);
-  }
-  .centerText {
-    position:absolute; top:50%; left:50%;
+  .bigmsg {
+    position:absolute;
+    top:50%; left:50%;
     transform:translate(-50%,-50%);
-    font-size:28px; font-weight:bold;
-    text-shadow:0 0 10px #000;
+    color:#fff;
+    font-size:28px;
     text-align:center;
+    text-shadow:0 0 10px #000;
     pointer-events:none;
   }
 </style>
 </head>
 <body>
 
-<div class="hud">
-  <div>
-    <b>ERGÜNUS MAXIMUS</b>
-    <div class="bar"><div id="pHP" class="fill"></div></div>
-  </div>
-
-  <div style="text-align:right;">
-    <b>BOSS: PATLAK KRAL</b>
-    <div class="bar"><div id="eHP" class="fill"></div></div>
-  </div>
+<div class="ui" id="ui">
+  <b>ERGÜNUS MAXIMUS</b><br>
+  HP: <span id="hp">100</span> | Skor: <span id="score">0</span><br>
+  <small>WASD Hareket | J Yumruk | K Tekme</small>
 </div>
 
-<div class="centerText" id="centerText">WASD Hareket<br>J Yumruk | K Tekme | Space Dash</div>
+<div class="bigmsg" id="msg">🏃‍♂️ Side-Scroller Modu<br><span style="font-size:16px;">Düşmanlar geliyor. Patlaklık yayılıyor.</span></div>
 
 <canvas id="game" width="960" height="540"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
-const pHPBar = document.getElementById("pHP");
-const eHPBar = document.getElementById("eHP");
-const centerText = document.getElementById("centerText");
-
 ctx.imageSmoothingEnabled = false;
+
+const uiHp = document.getElementById("hp");
+const uiScore = document.getElementById("score");
+const msg = document.getElementById("msg");
 
 const keys = {};
 window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-
 function rect(x,y,w,h,c){
   ctx.fillStyle = c;
   ctx.fillRect(x,y,w,h);
 }
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-function pixelText(text, x, y, size=14, color="#fff"){
-  ctx.fillStyle = color;
-  ctx.font = size + "px monospace";
-  ctx.fillText(text, x, y);
+const gravity = 0.7;
+const groundY = 420;
+
+let cameraX = 0;
+let score = 0;
+let gameOver = false;
+
+const player = {
+  x: 120,
+  y: groundY,
+  vx: 0,
+  vy: 0,
+  w: 40,
+  h: 60,
+  hp: 100,
+  facing: 1,
+  atkCooldown: 0,
+  state: "idle"
+};
+
+let enemies = [];
+let particles = [];
+
+function spawnEnemy(){
+  let spawnX = cameraX + canvas.width + 200 + Math.random()*200;
+  enemies.push({
+    x: spawnX,
+    y: groundY,
+    vx: 0,
+    vy: 0,
+    w: 42,
+    h: 62,
+    hp: 35,
+    facing: -1,
+    hitstun: 0,
+    atkCooldown: 0
+  });
+}
+
+function overlaps(a,b){
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 function hitSpark(x,y){
   for(let i=0;i<6;i++){
     particles.push({
-      x, y,
+      x,y,
       vx:(Math.random()*4-2),
       vy:(Math.random()*-3),
       life: 18,
@@ -89,252 +113,207 @@ function hitSpark(x,y){
   }
 }
 
-let particles = [];
-
-const gravity = 0.7;
-const groundY = 430;
-
-const player = {
-  name:"Ergünus Maximus",
-  x: 250, y: groundY,
-  vx:0, vy:0,
-  w: 40, h: 60,
-  hp: 100, maxHp:100,
-  facing: 1,
-  state: "idle",
-  animFrame: 0,
-  animTimer: 0,
-  attackCooldown: 0,
-  dashCooldown: 0,
-  hitstun: 0,
-  combo: 0
-};
-
-const enemy = {
-  name:"Patlak Kral",
-  x: 700, y: groundY,
-  vx:0, vy:0,
-  w: 46, h: 66,
-  hp: 160, maxHp:160,
-  facing: -1,
-  state: "idle",
-  animFrame: 0,
-  animTimer: 0,
-  attackCooldown: 0,
-  hitstun: 0,
-  rage: 0
-};
-
 function attackBox(fighter, type){
-  let range = type === "kick" ? 45 : 35;
-  let height = type === "kick" ? 25 : 20;
-  let ax = fighter.facing === 1 ? fighter.x + fighter.w : fighter.x - range;
+  let range = type==="kick" ? 55 : 40;
+  let ax = fighter.facing===1 ? fighter.x + fighter.w : fighter.x - range;
   let ay = fighter.y + 20;
-  return {x:ax, y:ay, w:range, h:height};
+  return {x:ax, y:ay, w:range, h:25};
 }
 
-function overlaps(a,b){
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+function damageEnemy(enemy, dmg){
+  enemy.hp -= dmg;
+  enemy.hitstun = 10;
+  enemy.vx += player.facing * 5;
+  hitSpark(enemy.x+enemy.w/2, enemy.y+20);
+  score += dmg * 2;
 }
 
-function drawFighter(f, palette, isPlayer){
+function playerAttack(type){
+  const box = attackBox(player, type);
+
+  enemies.forEach(e=>{
+    if(e.hp>0){
+      const eb = {x:e.x, y:e.y, w:e.w, h:e.h};
+      if(overlaps(box, eb)){
+        let dmg = type==="kick" ? 15 : 10;
+        if(Math.random() < 0.12) dmg *= 2;
+        damageEnemy(e, dmg);
+      }
+    }
+  });
+}
+
+function drawPlayer(){
   // shadow
-  rect(f.x-5, f.y+f.h, f.w+10, 6, "rgba(0,0,0,0.5)");
-
-  // body (pixel art block style)
-  let bodyColor = palette.body;
-  let headColor = palette.head;
-  let detail = palette.detail;
+  rect(player.x-5 - cameraX, player.y+player.h, player.w+10, 6, "rgba(0,0,0,0.5)");
 
   // legs
-  rect(f.x+6, f.y+42, 10, 18, bodyColor);
-  rect(f.x+24, f.y+42, 10, 18, bodyColor);
+  rect(player.x+6 - cameraX, player.y+42, 10, 18, "#00ccff");
+  rect(player.x+24 - cameraX, player.y+42, 10, 18, "#00ccff");
 
   // torso
-  rect(f.x+6, f.y+18, 28, 28, bodyColor);
+  rect(player.x+6 - cameraX, player.y+18, 28, 28, "#00ccff");
 
   // head
-  rect(f.x+10, f.y+2, 20, 18, headColor);
+  rect(player.x+10 - cameraX, player.y+2, 20, 18, "#ffcc00");
 
   // eyes
-  rect(f.x + (f.facing===1?20:14), f.y+8, 3, 3, "#000");
-  rect(f.x + (f.facing===1?26:20), f.y+8, 3, 3, "#000");
+  rect(player.x + (player.facing===1?20:14) - cameraX, player.y+8, 3, 3, "#000");
+  rect(player.x + (player.facing===1?26:20) - cameraX, player.y+8, 3, 3, "#000");
 
-  // mouth
-  rect(f.x+16, f.y+14, 10, 2, "#000");
-
-  // aura glow when rage
-  if(!isPlayer && enemy.rage > 60){
-    ctx.globalAlpha = 0.25;
-    rect(f.x-10, f.y-10, f.w+20, f.h+20, "#ff0033");
-    ctx.globalAlpha = 1;
-  }
-
-  // arms (animated)
-  let armOffset = 0;
-  if(f.state === "punch") armOffset = 10;
-  if(f.state === "kick") armOffset = 14;
-  if(f.state === "dash") armOffset = 6;
-
-  if(f.facing === 1){
-    rect(f.x+32, f.y+22, 12+armOffset, 8, detail);
+  // arm
+  if(player.state==="punch" || player.state==="kick"){
+    rect(player.x + (player.facing===1?32:-10) - cameraX, player.y+22, 20, 8, "#fff");
   } else {
-    rect(f.x- (12+armOffset), f.y+22, 12+armOffset, 8, detail);
+    rect(player.x + (player.facing===1?32:-6) - cameraX, player.y+22, 14, 8, "#fff");
   }
 
-  // name tag
-  pixelText(f.name, f.x-10, f.y-10, 12, "#aaa");
+  // name
+  ctx.fillStyle="#aaa";
+  ctx.font="12px monospace";
+  ctx.fillText("Ergünus", player.x-6 - cameraX, player.y-8);
 }
 
-function damage(target, amount){
-  target.hp -= amount;
-  if(target.hp < 0) target.hp = 0;
+function drawEnemy(e){
+  rect(e.x-5 - cameraX, e.y+e.h, e.w+10, 6, "rgba(0,0,0,0.5)");
+
+  rect(e.x+6 - cameraX, e.y+42, 10, 18, "#ff0033");
+  rect(e.x+24 - cameraX, e.y+42, 10, 18, "#ff0033");
+
+  rect(e.x+6 - cameraX, e.y+18, 28, 28, "#ff0033");
+  rect(e.x+10 - cameraX, e.y+2, 20, 18, "#bbb");
+
+  rect(e.x+14 - cameraX, e.y+8, 3, 3, "#000");
+  rect(e.x+20 - cameraX, e.y+8, 3, 3, "#000");
+
+  rect(e.x + (e.facing===1?32:-6) - cameraX, e.y+22, 14, 8, "#000");
+
+  ctx.fillStyle="#aaa";
+  ctx.font="11px monospace";
+  ctx.fillText("Çarrak NPC", e.x-10 - cameraX, e.y-8);
+
+  // hp bar
+  rect(e.x - cameraX, e.y-18, e.w, 6, "#222");
+  rect(e.x - cameraX, e.y-18, (e.hp/35)*e.w, 6, "#ffcc00");
 }
 
-function enemyAI(){
-  if(enemy.hitstun > 0) return;
+function drawBackground(){
+  rect(0,0,canvas.width,canvas.height,"#0b0b0b");
 
-  let dist = player.x - enemy.x;
-  let abs = Math.abs(dist);
-
-  enemy.facing = dist > 0 ? 1 : -1;
-
-  // rage increases when losing
-  enemy.rage = (1 - enemy.hp/enemy.maxHp) * 100;
-
-  // move toward player
-  if(abs > 110){
-    enemy.vx = enemy.facing * (2.2 + enemy.rage*0.03);
-    enemy.state = "walk";
-  } else {
-    enemy.vx *= 0.8;
-    if(enemy.attackCooldown <= 0){
-      // random attack choice
-      if(Math.random() < 0.55){
-        enemy.state = "punch";
-        enemy.attackCooldown = 35;
-      } else {
-        enemy.state = "kick";
-        enemy.attackCooldown = 45;
-      }
-    } else {
-      enemy.state = "idle";
-    }
+  // parallax buildings
+  for(let i=0;i<80;i++){
+    let bx = i*60 - (cameraX*0.3 % 60);
+    let h = 60 + (i%7)*20;
+    rect(bx, 280-h, 50, h, "rgba(255,255,255,0.05)");
   }
-}
 
-function doAttack(attacker, defender, type){
-  const box = attackBox(attacker, type);
-  const defBox = {x:defender.x, y:defender.y, w:defender.w, h:defender.h};
+  // floor
+  rect(0, groundY+60, canvas.width, canvas.height, "#050505");
+  rect(0, groundY+55, canvas.width, 10, "#222");
 
-  if(overlaps(box, defBox)){
-    let base = type==="kick" ? 14 : 10;
-    let crit = Math.random() < 0.15;
-    let dmg = crit ? base*2 : base;
-
-    damage(defender, dmg);
-    defender.hitstun = 12;
-    defender.vx += attacker.facing * 6;
-    hitSpark(defender.x + defender.w/2, defender.y + 20);
-
-    if(attacker === player){
-      player.combo++;
-    } else {
-      player.combo = 0;
-    }
-
-    // screen shake
-    shake = 8;
-
-    return true;
+  // road marks
+  for(let i=0;i<25;i++){
+    rect(i*50 - (cameraX % 50), groundY+58, 20, 2, "rgba(255,0,51,0.25)");
   }
-  return false;
-}
 
-let shake = 0;
-let gameOver = false;
+  ctx.fillStyle="#ffcc00";
+  ctx.font="18px monospace";
+  ctx.fillText("SIDE-SCROLLER: PATLAKLIK YAYILIYOR", 20, 30);
+}
 
 function update(){
   if(gameOver) return;
 
-  // hide intro after action
-  if(keys["w"]||keys["a"]||keys["s"]||keys["d"]||keys["j"]||keys["k"]||keys[" "]) {
-    centerText.style.display = "none";
+  if(keys["w"] && player.y >= groundY){
+    player.vy = -12;
   }
 
-  // cooldowns
-  player.attackCooldown = Math.max(0, player.attackCooldown-1);
-  player.dashCooldown = Math.max(0, player.dashCooldown-1);
-  enemy.attackCooldown = Math.max(0, enemy.attackCooldown-1);
-
-  player.hitstun = Math.max(0, player.hitstun-1);
-  enemy.hitstun = Math.max(0, enemy.hitstun-1);
-
-  // player controls
-  if(player.hitstun <= 0){
-    let speed = 3.2;
-
-    if(keys["a"]){ player.vx = -speed; player.facing=-1; player.state="walk"; }
-    else if(keys["d"]){ player.vx = speed; player.facing=1; player.state="walk"; }
-    else player.vx *= 0.75;
-
-    if(keys["w"] && player.y >= groundY){ player.vy = -12; player.state="jump"; }
-
-    // dash
-    if(keys[" "] && player.dashCooldown <= 0){
-      player.state="dash";
-      player.vx = player.facing * 12;
-      player.dashCooldown = 55;
-      shake = 4;
-    }
-
-    // punch
-    if(keys["j"] && player.attackCooldown <= 0){
-      player.state="punch";
-      player.attackCooldown = 18;
-      doAttack(player, enemy, "punch");
-    }
-
-    // kick
-    if(keys["k"] && player.attackCooldown <= 0){
-      player.state="kick";
-      player.attackCooldown = 28;
-      doAttack(player, enemy, "kick");
-    }
+  if(keys["a"]){
+    player.vx = -3.5;
+    player.facing = -1;
+  } else if(keys["d"]){
+    player.vx = 3.5;
+    player.facing = 1;
+  } else {
+    player.vx *= 0.75;
   }
 
-  // enemy AI
-  enemyAI();
+  player.atkCooldown = Math.max(0, player.atkCooldown-1);
 
-  // enemy attacks
-  if(enemy.state==="punch" && enemy.attackCooldown === 30){
-    doAttack(enemy, player, "punch");
-  }
-  if(enemy.state==="kick" && enemy.attackCooldown === 38){
-    doAttack(enemy, player, "kick");
+  if(keys["j"] && player.atkCooldown <= 0){
+    player.state="punch";
+    player.atkCooldown = 20;
+    playerAttack("punch");
+  } else if(keys["k"] && player.atkCooldown <= 0){
+    player.state="kick";
+    player.atkCooldown = 30;
+    playerAttack("kick");
+  } else {
+    if(player.atkCooldown < 8) player.state="idle";
   }
 
-  // physics
   player.vy += gravity;
-  enemy.vy += gravity;
-
   player.x += player.vx;
   player.y += player.vy;
 
-  enemy.x += enemy.vx;
-  enemy.y += enemy.vy;
+  if(player.y > groundY){
+    player.y = groundY;
+    player.vy = 0;
+  }
 
-  // ground collision
-  if(player.y > groundY){ player.y = groundY; player.vy=0; }
-  if(enemy.y > groundY){ enemy.y = groundY; enemy.vy=0; }
+  // camera follows player
+  cameraX = player.x - 200;
+  if(cameraX < 0) cameraX = 0;
 
-  // bounds
-  player.x = clamp(player.x, 40, canvas.width-80);
-  enemy.x = clamp(enemy.x, 40, canvas.width-80);
+  // enemy logic
+  enemies.forEach(e=>{
+    if(e.hp <= 0) return;
 
-  // update hp bars
-  pHPBar.style.width = (player.hp/player.maxHp*100) + "%";
-  eHPBar.style.width = (enemy.hp/enemy.maxHp*100) + "%";
+    e.hitstun = Math.max(0, e.hitstun-1);
+    e.atkCooldown = Math.max(0, e.atkCooldown-1);
+
+    let dist = player.x - e.x;
+    e.facing = dist>0 ? 1 : -1;
+
+    if(e.hitstun > 0){
+      e.vx *= 0.8;
+    } else {
+      if(Math.abs(dist) > 70){
+        e.vx = e.facing * 2.1;
+      } else {
+        e.vx *= 0.8;
+        if(e.atkCooldown <= 0){
+          // attack
+          e.atkCooldown = 40;
+          if(Math.random() < 0.7){
+            // hit player
+            player.hp -= 8;
+            hitSpark(player.x+player.w/2, player.y+20);
+          } else {
+            player.hp -= 12;
+            hitSpark(player.x+player.w/2, player.y+20);
+          }
+        }
+      }
+    }
+
+    e.vy += gravity;
+    e.x += e.vx;
+    e.y += e.vy;
+
+    if(e.y > groundY){
+      e.y = groundY;
+      e.vy = 0;
+    }
+  });
+
+  // remove dead enemies occasionally
+  enemies = enemies.filter(e => e.hp > -20);
+
+  // spawn enemies if not enough
+  if(enemies.filter(e=>e.hp>0).length < 4 && Math.random() < 0.05){
+    spawnEnemy();
+  }
 
   // particles
   particles.forEach(p=>{
@@ -345,69 +324,39 @@ function update(){
   });
   particles = particles.filter(p=>p.life>0);
 
-  // game end
+  // update UI
+  uiHp.textContent = player.hp;
+  uiScore.textContent = score;
+
+  // hide intro
+  if(keys["w"]||keys["a"]||keys["s"]||keys["d"]||keys["j"]||keys["k"]) {
+    msg.style.display = "none";
+  }
+
   if(player.hp <= 0){
     gameOver = true;
-    centerText.style.display = "block";
-    centerText.innerHTML = "💀 ERGÜNUS MAXIMUS YIKILDI<br><span style='font-size:18px;'>Boss: 'ben zaten kazandım' dedi.</span><br><br>Sayfayı yenile";
+    msg.style.display="block";
+    msg.innerHTML = "💀 ERGÜNUS MAXIMUS DÜŞTÜ<br><span style='font-size:16px;'>Patlaklık kazandı.</span><br><br>Sayfayı yenile";
   }
-
-  if(enemy.hp <= 0){
-    gameOver = true;
-    centerText.style.display = "block";
-    centerText.innerHTML = "🏆 ZAFER! PATLAK KRAL DÜŞTÜ<br><span style='font-size:18px;'>Ergünus: 'ben zaten sigma'yım' dedi.</span><br><br>Sayfayı yenile";
-  }
-}
-
-function drawBackground(){
-  // sky
-  rect(0,0,canvas.width,canvas.height,"#0b0b0b");
-
-  // fake pixel city
-  for(let i=0;i<40;i++){
-    let bx = i*30;
-    let h = 50 + Math.random()*120;
-    rect(bx, 280-h, 26, h, "rgba(255,255,255,0.06)");
-  }
-
-  // floor
-  rect(0, groundY+60, canvas.width, canvas.height, "#050505");
-  rect(0, groundY+55, canvas.width, 10, "#222");
-
-  // neon lines
-  for(let i=0;i<20;i++){
-    rect(i*50, groundY+58, 20, 2, "rgba(255,0,51,0.3)");
-  }
-
-  pixelText("ARENA: ÇARRAK DİYARI", 20, 30, 18, "#ffcc00");
-  pixelText("Combo: " + player.combo, 20, 55, 14, "#aaa");
 }
 
 function draw(){
-  let sx = 0, sy = 0;
-  if(shake > 0){
-    sx = Math.random()*shake - shake/2;
-    sy = Math.random()*shake - shake/2;
-    shake *= 0.85;
-    if(shake < 0.5) shake = 0;
-  }
-
-  ctx.save();
-  ctx.translate(sx, sy);
-
   drawBackground();
 
-  drawFighter(player, {body:"#00ccff", head:"#ffcc00", detail:"#fff"}, true);
-  drawFighter(enemy, {body:"#ff0033", head:"#bbb", detail:"#000"}, false);
+  // draw enemies
+  enemies.forEach(e=>{
+    if(e.hp > 0) drawEnemy(e);
+  });
+
+  // draw player
+  drawPlayer();
 
   // particles
   particles.forEach(p=>{
     ctx.globalAlpha = p.life/18;
-    rect(p.x, p.y, 4, 4, p.color);
+    rect(p.x - cameraX, p.y, 4, 4, p.color);
     ctx.globalAlpha = 1;
   });
-
-  ctx.restore();
 }
 
 function loop(){
@@ -415,6 +364,9 @@ function loop(){
   draw();
   requestAnimationFrame(loop);
 }
+
+// initial enemies
+for(let i=0;i<3;i++) spawnEnemy();
 
 loop();
 </script>
