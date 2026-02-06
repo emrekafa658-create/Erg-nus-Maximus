@@ -1,257 +1,788 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ergünus Maximus Side Scroller</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Çarrakverse: Pixel Boss Rush</title>
 <style>
   body { margin:0; background:#000; overflow:hidden; font-family:Arial; }
-  canvas { display:block; margin:0 auto; background:#111; image-rendering: pixelated; }
-  .ui {
-    position:absolute; top:10px; left:10px;
-    color:#fff; font-size:14px;
-    text-shadow:0 0 6px #000;
-    background:rgba(0,0,0,0.4);
-    padding:10px; border-radius:10px;
-    border:1px solid rgba(255,255,255,0.15);
+  canvas {
+    display:block; margin:0 auto;
+    background:#0b0b0b;
+    image-rendering: pixelated;
   }
-  .bigmsg {
+  .hud {
+    position:absolute;
+    top:0; left:0;
+    width:100%;
+    padding:10px;
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    color:#fff;
+    text-shadow:0 0 6px #000;
+    pointer-events:none;
+    font-family: monospace;
+  }
+  .panel {
+    background: rgba(0,0,0,0.5);
+    border:1px solid rgba(255,255,255,0.12);
+    padding:10px;
+    border-radius:12px;
+    min-width:320px;
+  }
+  .bar {
+    width: 280px;
+    height: 14px;
+    border:1px solid rgba(255,255,255,0.4);
+    background:#111;
+    margin-top:4px;
+    position:relative;
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .fill {
+    height:100%;
+    width:100%;
+    background: linear-gradient(90deg, #00ff88, #ffcc00, #ff0033);
+  }
+  .ultifill {
+    height:100%;
+    width:0%;
+    background: linear-gradient(90deg, #00ccff, #cc00ff, #ff00aa);
+  }
+
+  .center {
     position:absolute;
     top:50%; left:50%;
     transform:translate(-50%,-50%);
     color:#fff;
-    font-size:28px;
+    font-size:22px;
     text-align:center;
-    text-shadow:0 0 10px #000;
-    pointer-events:none;
+    text-shadow:0 0 12px #000;
+    width:80%;
+  }
+
+  .btnRow {
+    margin-top:16px;
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    flex-wrap:wrap;
+    pointer-events:auto;
+  }
+  button {
+    background:#111;
+    color:#fff;
+    border:1px solid rgba(255,255,255,0.2);
+    padding:10px 14px;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:bold;
+  }
+  button:hover {
+    background:#1d1d1d;
+  }
+
+  .tiny {
+    font-size:14px;
+    opacity:0.85;
   }
 </style>
 </head>
 <body>
 
-<div class="ui" id="ui">
-  <b>ERGÜNUS MAXIMUS</b><br>
-  HP: <span id="hp">100</span> | Skor: <span id="score">0</span><br>
-  <small>WASD Hareket | J Yumruk | K Tekme</small>
+<div class="hud">
+  <div class="panel">
+    <b>OYUNCU: ÇARRAK</b><br>
+    HP
+    <div class="bar"><div id="pHP" class="fill"></div></div>
+    ULTI
+    <div class="bar"><div id="pULTI" class="ultifill"></div></div>
+    <div class="tiny" id="pInfo">Combo: 0 | Skor: 0</div>
+  </div>
+
+  <div class="panel" style="text-align:right;">
+    <b id="bossName">BOSS: ???</b><br>
+    HP
+    <div class="bar"><div id="bHP" class="fill"></div></div>
+    <div class="tiny" id="bInfo">Phase: 1</div>
+  </div>
 </div>
 
-<div class="bigmsg" id="msg">🏃‍♂️ Side-Scroller Modu<br><span style="font-size:16px;">Düşmanlar geliyor. Patlaklık yayılıyor.</span></div>
+<div class="center" id="overlay"></div>
 
 <canvas id="game" width="960" height="540"></canvas>
 
 <script>
+/* ===========================
+   ÇARRAKVERSE: PIXEL BOSS GAME
+   Tek dosya, canvas fighter
+=========================== */
+
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-const uiHp = document.getElementById("hp");
-const uiScore = document.getElementById("score");
-const msg = document.getElementById("msg");
+const overlay = document.getElementById("overlay");
+const pHPBar = document.getElementById("pHP");
+const bHPBar = document.getElementById("bHP");
+const pULTIBar = document.getElementById("pULTI");
+const pInfo = document.getElementById("pInfo");
+const bInfo = document.getElementById("bInfo");
+const bossNameEl = document.getElementById("bossName");
 
 const keys = {};
 window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function rand(min,max){ return min + Math.random()*(max-min); }
+
 function rect(x,y,w,h,c){
   ctx.fillStyle = c;
   ctx.fillRect(x,y,w,h);
 }
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 
-const gravity = 0.7;
-const groundY = 420;
+function text(txt,x,y,size=14,color="#fff"){
+  ctx.fillStyle = color;
+  ctx.font = size + "px monospace";
+  ctx.fillText(txt,x,y);
+}
 
-let cameraX = 0;
-let score = 0;
-let gameOver = false;
+function speak(line){
+  try{
+    const u = new SpeechSynthesisUtterance(line);
+    u.lang = "tr-TR";
+    u.rate = 1.05;
+    u.pitch = 0.9;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
 
-const player = {
-  x: 120,
-  y: groundY,
-  vx: 0,
-  vy: 0,
-  w: 40,
-  h: 60,
-  hp: 100,
-  facing: 1,
-  atkCooldown: 0,
-  state: "idle"
-};
+let shake = 0;
+function screenShake(power=6){
+  shake = Math.max(shake, power);
+}
 
-let enemies = [];
 let particles = [];
-
-function spawnEnemy(){
-  let spawnX = cameraX + canvas.width + 200 + Math.random()*200;
-  enemies.push({
-    x: spawnX,
-    y: groundY,
-    vx: 0,
-    vy: 0,
-    w: 42,
-    h: 62,
-    hp: 35,
-    facing: -1,
-    hitstun: 0,
-    atkCooldown: 0
-  });
-}
-
-function overlaps(a,b){
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
-
-function hitSpark(x,y){
-  for(let i=0;i<6;i++){
+function spark(x,y, colorA="#ffcc00", colorB="#ff0033"){
+  for(let i=0;i<10;i++){
     particles.push({
       x,y,
-      vx:(Math.random()*4-2),
-      vy:(Math.random()*-3),
-      life: 18,
-      color: Math.random()<0.5 ? "#ffcc00" : "#ff0033"
+      vx: rand(-2.8,2.8),
+      vy: rand(-3.5,-0.5),
+      life: rand(12,22),
+      c: Math.random()<0.5 ? colorA : colorB
     });
   }
 }
 
-function attackBox(fighter, type){
-  let range = type==="kick" ? 55 : 40;
-  let ax = fighter.facing===1 ? fighter.x + fighter.w : fighter.x - range;
-  let ay = fighter.y + 20;
-  return {x:ax, y:ay, w:range, h:25};
-}
-
-function damageEnemy(enemy, dmg){
-  enemy.hp -= dmg;
-  enemy.hitstun = 10;
-  enemy.vx += player.facing * 5;
-  hitSpark(enemy.x+enemy.w/2, enemy.y+20);
-  score += dmg * 2;
-}
-
-function playerAttack(type){
-  const box = attackBox(player, type);
-
-  enemies.forEach(e=>{
-    if(e.hp>0){
-      const eb = {x:e.x, y:e.y, w:e.w, h:e.h};
-      if(overlaps(box, eb)){
-        let dmg = type==="kick" ? 15 : 10;
-        if(Math.random() < 0.12) dmg *= 2;
-        damageEnemy(e, dmg);
-      }
-    }
+function drawParticles(){
+  particles.forEach(p=>{
+    ctx.globalAlpha = clamp(p.life/22, 0, 1);
+    rect(p.x, p.y, 4, 4, p.c);
+    ctx.globalAlpha = 1;
   });
 }
 
-function drawPlayer(){
-  // shadow
-  rect(player.x-5 - cameraX, player.y+player.h, player.w+10, 6, "rgba(0,0,0,0.5)");
+function updateParticles(){
+  particles.forEach(p=>{
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.25;
+    p.life -= 1;
+  });
+  particles = particles.filter(p=>p.life>0);
+}
 
-  // legs
-  rect(player.x+6 - cameraX, player.y+42, 10, 18, "#00ccff");
-  rect(player.x+24 - cameraX, player.y+42, 10, 18, "#00ccff");
+const gravity = 0.75;
+const groundY = 420;
+
+const player = {
+  name:"Çarrak",
+  x: 220,
+  y: groundY,
+  vx: 0,
+  vy: 0,
+  w: 40,
+  h: 62,
+  hp: 120,
+  maxHp: 120,
+  ulti: 0,
+  maxUlti: 100,
+  facing: 1,
+  state: "idle",
+  animT: 0,
+  hitstun: 0,
+  atkCD: 0,
+  dashCD: 0,
+  block: false,
+  combo: 0,
+  score: 0,
+  invuln: 0
+};
+
+let boss = null;
+
+const BOSSES = [
+  {
+    id:"sivas_kangali",
+    name:"SİVAS KANGALI",
+    maxHp: 140,
+    colorBody:"#c49a6c",
+    colorHead:"#ffddaa",
+    voiceLines:[
+      "Hav hav değil... bu bir manifesto.",
+      "Çarrak... kemiklerin iptal.",
+      "Sivas'tan selam getirdim!"
+    ],
+    ai: "hound",
+    intro: "Bölüm 1: SİVAS KANGALI\n\nKangal arenaya girdi.\nAurası: 'çoban wifi'si'."
+  },
+  {
+    id:"muhalefet",
+    name:"MUHALEFET",
+    maxHp: 160,
+    colorBody:"#00ccff",
+    colorHead:"#ffffff",
+    voiceLines:[
+      "Biz geliyoruz ama biraz yavaş...",
+      "Plan var ama kimde olduğunu bilmiyoruz.",
+      "Çarrak... seni gündeme alacağız."
+    ],
+    ai: "debate",
+    intro: "Bölüm 2: MUHALEFET\n\nSözlü saldırı uzmanı.\nSilahı: 'Gündem Değiştirme'."
+  },
+  {
+    id:"eleren",
+    name:"ELEREN",
+    maxHp: 180,
+    colorBody:"#cc00ff",
+    colorHead:"#ffcc00",
+    voiceLines:[
+      "Ben Eleren. Benimle tartışma.",
+      "Chat beni seviyor, sen kimsin?",
+      "Çarrak... sana cringe basacağım."
+    ],
+    ai: "trickster",
+    intro: "Bölüm 3: ELEREN\n\nArena ışıkları karardı.\nEleren glitch açtı."
+  },
+  {
+    id:"kokusukviyuyuyuy",
+    name:"KOKUŞUKVİYUYUYUY",
+    maxHp: 210,
+    colorBody:"#55ff55",
+    colorHead:"#bbbbbb",
+    voiceLines:[
+      "Benim adım bile bug.",
+      "Kokuşuk... ve gururluyum.",
+      "Çarrak, senin FPS'in düşecek."
+    ],
+    ai: "toxic",
+    intro: "Bölüm 4: KOKUŞUKVİYUYUYUY\n\nHavada 'lag kokusu' var.\nBu boss bir hata gibi."
+  },
+  {
+    id:"ergunus_maximus",
+    name:"ERGÜNUS MAXIMUS",
+    maxHp: 260,
+    colorBody:"#ff0033",
+    colorHead:"#bbbbbb",
+    voiceLines:[
+      "Ben son bossum. Beni yenemezsin.",
+      "Çarrak... senin kaderin patlak.",
+      "Benim egom bile boss fight."
+    ],
+    ai: "final",
+    intro: "Bölüm 5: ERGÜNUS MAXIMUS\n\nFinal kapısı açıldı.\nGökyüzü patladı."
+  }
+];
+
+function createBoss(index){
+  const b = BOSSES[index];
+  return {
+    index,
+    id: b.id,
+    name: b.name,
+    x: 700,
+    y: groundY,
+    vx: 0,
+    vy: 0,
+    w: 46,
+    h: 70,
+    hp: b.maxHp,
+    maxHp: b.maxHp,
+    phase: 1,
+    rage: 0,
+    hitstun: 0,
+    atkCD: 0,
+    specialCD: 0,
+    facing: -1,
+    state: "idle",
+    animT: 0,
+    colorBody: b.colorBody,
+    colorHead: b.colorHead,
+    ai: b.ai,
+    voiceLines: b.voiceLines,
+    intro: b.intro
+  };
+}
+
+function playerBox(){
+  return {x:player.x, y:player.y, w:player.w, h:player.h};
+}
+function bossBox(){
+  return {x:boss.x, y:boss.y, w:boss.w, h:boss.h};
+}
+function overlaps(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function attackBox(entity, type){
+  let range = 40;
+  let height = 24;
+  let offsetY = 20;
+
+  if(type==="kick"){ range = 55; height = 28; }
+  if(type==="upper"){ range = 38; height = 38; offsetY = 5; }
+  if(type==="ulti"){ range = 120; height = 60; offsetY = 0; }
+
+  let ax = entity.facing === 1 ? entity.x + entity.w : entity.x - range;
+  let ay = entity.y + offsetY;
+  return {x:ax, y:ay, w:range, h:height};
+}
+
+function takeDamage(target, dmg, knockX, isBoss=false){
+  if(target.invuln && target.invuln>0) return;
+
+  if(target === player && player.block){
+    dmg = Math.floor(dmg * 0.35);
+    spark(player.x+player.w/2, player.y+20, "#00ccff", "#ffffff");
+  }
+
+  target.hp -= dmg;
+  if(target.hp < 0) target.hp = 0;
+
+  if(target === player){
+    player.hitstun = 10;
+    player.vx += knockX;
+    player.combo = 0;
+    screenShake(6);
+  } else {
+    boss.hitstun = 10;
+    boss.vx += knockX;
+    player.combo += 1;
+    player.score += dmg * (1 + player.combo*0.08);
+    player.ulti = clamp(player.ulti + dmg*0.6, 0, player.maxUlti);
+    screenShake(7);
+  }
+}
+
+function drawFighter(x,y,w,h, body, head, facing, state, animT, label){
+  // shadow
+  rect(x-6, y+h, w+12, 6, "rgba(0,0,0,0.55)");
+
+  // slight animation bounce
+  let bounce = Math.sin(animT*0.2) * 2;
+
+  // legs (walk animation)
+  let legOffset = (state==="walk") ? Math.sin(animT*0.3)*4 : 0;
+  rect(x+6, y+44 + bounce + legOffset, 10, 18, body);
+  rect(x+24, y+44 + bounce - legOffset, 10, 18, body);
 
   // torso
-  rect(player.x+6 - cameraX, player.y+18, 28, 28, "#00ccff");
+  rect(x+6, y+18 + bounce, 28, 28, body);
 
   // head
-  rect(player.x+10 - cameraX, player.y+2, 20, 18, "#ffcc00");
+  rect(x+10, y+2 + bounce, 20, 18, head);
 
   // eyes
-  rect(player.x + (player.facing===1?20:14) - cameraX, player.y+8, 3, 3, "#000");
-  rect(player.x + (player.facing===1?26:20) - cameraX, player.y+8, 3, 3, "#000");
+  rect(x + (facing===1?20:14), y+8 + bounce, 3, 3, "#000");
+  rect(x + (facing===1?26:20), y+8 + bounce, 3, 3, "#000");
 
-  // arm
-  if(player.state==="punch" || player.state==="kick"){
-    rect(player.x + (player.facing===1?32:-10) - cameraX, player.y+22, 20, 8, "#fff");
+  // mouth (changes on hit)
+  if(state==="hurt"){
+    rect(x+16, y+15 + bounce, 10, 2, "#ff0033");
   } else {
-    rect(player.x + (player.facing===1?32:-6) - cameraX, player.y+22, 14, 8, "#fff");
+    rect(x+16, y+14 + bounce, 10, 2, "#000");
   }
 
-  // name
-  ctx.fillStyle="#aaa";
-  ctx.font="12px monospace";
-  ctx.fillText("Ergünus", player.x-6 - cameraX, player.y-8);
+  // arm animation
+  let armLen = 14;
+  if(state==="punch") armLen = 26;
+  if(state==="kick") armLen = 22;
+  if(state==="upper") armLen = 20;
+  if(state==="ulti") armLen = 40;
+  if(state==="block") armLen = 10;
+
+  if(facing===1){
+    rect(x+32, y+22 + bounce, armLen, 8, "#fff");
+  } else {
+    rect(x-armLen, y+22 + bounce, armLen, 8, "#fff");
+  }
+
+  // aura for ulti
+  if(state==="ulti"){
+    ctx.globalAlpha = 0.18;
+    rect(x-14, y-14, w+28, h+28, "#cc00ff");
+    rect(x-20, y-20, w+40, h+40, "#00ccff");
+    ctx.globalAlpha = 1;
+  }
+
+  // label
+  text(label, x-10, y-10, 12, "rgba(255,255,255,0.75)");
 }
 
-function drawEnemy(e){
-  rect(e.x-5 - cameraX, e.y+e.h, e.w+10, 6, "rgba(0,0,0,0.5)");
+function bossAI(){
+  if(!boss) return;
 
-  rect(e.x+6 - cameraX, e.y+42, 10, 18, "#ff0033");
-  rect(e.x+24 - cameraX, e.y+42, 10, 18, "#ff0033");
+  boss.animT++;
 
-  rect(e.x+6 - cameraX, e.y+18, 28, 28, "#ff0033");
-  rect(e.x+10 - cameraX, e.y+2, 20, 18, "#bbb");
+  if(boss.hp <= boss.maxHp*0.55 && boss.phase === 1){
+    boss.phase = 2;
+    speak(boss.name + " ikinci forma geçti!");
+    screenShake(12);
+    spark(boss.x+20, boss.y+20, "#ff0033", "#ffffff");
+    boss.specialCD = 50;
+  }
 
-  rect(e.x+14 - cameraX, e.y+8, 3, 3, "#000");
-  rect(e.x+20 - cameraX, e.y+8, 3, 3, "#000");
+  boss.hitstun = Math.max(0, boss.hitstun-1);
+  boss.atkCD = Math.max(0, boss.atkCD-1);
+  boss.specialCD = Math.max(0, boss.specialCD-1);
 
-  rect(e.x + (e.facing===1?32:-6) - cameraX, e.y+22, 14, 8, "#000");
+  if(boss.hitstun > 0){
+    boss.vx *= 0.82;
+    boss.state = "hurt";
+    return;
+  }
 
-  ctx.fillStyle="#aaa";
-  ctx.font="11px monospace";
-  ctx.fillText("Çarrak NPC", e.x-10 - cameraX, e.y-8);
+  let dist = player.x - boss.x;
+  let abs = Math.abs(dist);
+  boss.facing = dist>0 ? 1 : -1;
 
-  // hp bar
-  rect(e.x - cameraX, e.y-18, e.w, 6, "#222");
-  rect(e.x - cameraX, e.y-18, (e.hp/35)*e.w, 6, "#ffcc00");
+  let baseSpeed = 2.2 + boss.phase*0.8;
+
+  // Different boss behaviors
+  if(boss.ai === "hound"){
+    // rush & bite
+    if(abs > 120){
+      boss.vx = boss.facing * (baseSpeed+1.2);
+      boss.state = "walk";
+    } else {
+      boss.vx *= 0.8;
+      if(boss.atkCD <= 0){
+        boss.state = "kick";
+        boss.atkCD = 35;
+      }
+      if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.3){
+        boss.state="ulti";
+        boss.specialCD = 90;
+        boss.atkCD = 55;
+        screenShake(10);
+        speak("HAV HAV KOMBO!");
+        // AoE bite
+        if(abs < 160){
+          takeDamage(player, 18, boss.facing*8);
+          spark(player.x+player.w/2, player.y+20, "#c49a6c", "#ff0033");
+        }
+      }
+    }
+  }
+
+  if(boss.ai === "debate"){
+    // stays mid-range and throws "argument"
+    if(abs < 140){
+      boss.vx = -boss.facing * baseSpeed;
+      boss.state="walk";
+    } else if(abs > 260){
+      boss.vx = boss.facing * baseSpeed;
+      boss.state="walk";
+    } else {
+      boss.vx *= 0.85;
+      boss.state="idle";
+      if(boss.atkCD<=0){
+        boss.atkCD = 45 - boss.phase*8;
+        // argument projectile (fake)
+        projectiles.push({
+          x: boss.x + boss.w/2,
+          y: boss.y + 25,
+          vx: boss.facing * (5.5 + boss.phase*1.2),
+          w: 14,
+          h: 10,
+          dmg: 10 + boss.phase*3,
+          color:"#00ccff",
+          type:"argument"
+        });
+        speak("GÜNDEM!");
+      }
+    }
+  }
+
+  if(boss.ai === "trickster"){
+    // teleport-ish dash
+    if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.02){
+      boss.specialCD = 90;
+      boss.x = clamp(player.x + rand(-220,220), 60, canvas.width-100);
+      screenShake(8);
+      spark(boss.x+20, boss.y+20, "#cc00ff", "#ffcc00");
+      speak("GLITCH ATTIM.");
+    }
+
+    if(abs > 110){
+      boss.vx = boss.facing * (baseSpeed+0.7);
+      boss.state="walk";
+    } else {
+      boss.vx *= 0.7;
+      if(boss.atkCD<=0){
+        boss.atkCD = 35 - boss.phase*6;
+        boss.state = Math.random()<0.5 ? "punch" : "upper";
+      }
+    }
+  }
+
+  if(boss.ai === "toxic"){
+    // poison cloud + slow hits
+    if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.03){
+      boss.specialCD = 100;
+      speak("KOKU SALDIM!");
+      poisonClouds.push({
+        x: boss.x + boss.facing*70,
+        y: boss.y + 25,
+        r: 10,
+        life: 180
+      });
+      screenShake(8);
+    }
+
+    if(abs > 150){
+      boss.vx = boss.facing * (baseSpeed);
+      boss.state="walk";
+    } else {
+      boss.vx *= 0.85;
+      if(boss.atkCD<=0){
+        boss.atkCD = 40 - boss.phase*5;
+        boss.state="kick";
+      }
+    }
+  }
+
+  if(boss.ai === "final"){
+    // very aggressive with random specials
+    if(abs > 90){
+      boss.vx = boss.facing * (baseSpeed+1.2);
+      boss.state="walk";
+    } else {
+      boss.vx *= 0.65;
+      if(boss.atkCD<=0){
+        boss.atkCD = 30 - boss.phase*5;
+        let roll = Math.random();
+        if(roll < 0.4) boss.state="punch";
+        else if(roll < 0.75) boss.state="kick";
+        else boss.state="upper";
+      }
+
+      if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.06){
+        boss.specialCD = 100;
+        boss.state="ulti";
+        speak("PATLAK METEOR!");
+        screenShake(14);
+
+        // meteor rain
+        for(let i=0;i<6;i++){
+          projectiles.push({
+            x: player.x + rand(-250,250),
+            y: -50 - i*30,
+            vx: rand(-1.2,1.2),
+            vy: rand(5.5,7.5),
+            w: 14,
+            h: 14,
+            dmg: 14,
+            color:"#ff0033",
+            type:"meteor"
+          });
+        }
+      }
+    }
+  }
+
+  // boss attack execution timing
+  if(boss.state==="punch" && boss.atkCD === 20){
+    if(overlaps(attackBox(boss,"punch"), playerBox())){
+      takeDamage(player, 12 + boss.phase*2, boss.facing*7);
+      spark(player.x+player.w/2, player.y+20);
+    }
+  }
+
+  if(boss.state==="kick" && boss.atkCD === 25){
+    if(overlaps(attackBox(boss,"kick"), playerBox())){
+      takeDamage(player, 16 + boss.phase*2, boss.facing*9);
+      spark(player.x+player.w/2, player.y+20);
+    }
+  }
+
+  if(boss.state==="upper" && boss.atkCD === 20){
+    if(overlaps(attackBox(boss,"upper"), playerBox())){
+      takeDamage(player, 18 + boss.phase*3, boss.facing*11);
+      player.vy = -10;
+      spark(player.x+player.w/2, player.y+10, "#ffcc00", "#cc00ff");
+    }
+  }
+
+  // physics
+  boss.vy += gravity;
+  boss.x += boss.vx;
+  boss.y += boss.vy;
+
+  if(boss.y > groundY){
+    boss.y = groundY;
+    boss.vy = 0;
+  }
+
+  boss.x = clamp(boss.x, 40, canvas.width-80);
 }
 
-function drawBackground(){
-  rect(0,0,canvas.width,canvas.height,"#0b0b0b");
+let projectiles = [];
+let poisonClouds = [];
 
-  // parallax buildings
-  for(let i=0;i<80;i++){
-    let bx = i*60 - (cameraX*0.3 % 60);
-    let h = 60 + (i%7)*20;
-    rect(bx, 280-h, 50, h, "rgba(255,255,255,0.05)");
-  }
+function updateProjectiles(){
+  projectiles.forEach(p=>{
+    p.x += p.vx;
+    if(p.vy) p.y += p.vy;
 
-  // floor
-  rect(0, groundY+60, canvas.width, canvas.height, "#050505");
-  rect(0, groundY+55, canvas.width, 10, "#222");
+    // player hit
+    const pb = playerBox();
+    const pr = {x:p.x, y:p.y, w:p.w, h:p.h};
+    if(overlaps(pb, pr)){
+      takeDamage(player, p.dmg, (p.vx||0)*1.5);
+      spark(player.x+player.w/2, player.y+20, p.color, "#fff");
+      p.dead = true;
+    }
 
-  // road marks
-  for(let i=0;i<25;i++){
-    rect(i*50 - (cameraX % 50), groundY+58, 20, 2, "rgba(255,0,51,0.25)");
-  }
+    if(p.x < -100 || p.x > canvas.width+100 || p.y > canvas.height+200){
+      p.dead = true;
+    }
+  });
 
-  ctx.fillStyle="#ffcc00";
-  ctx.font="18px monospace";
-  ctx.fillText("SIDE-SCROLLER: PATLAKLIK YAYILIYOR", 20, 30);
+  projectiles = projectiles.filter(p=>!p.dead);
 }
 
-function update(){
-  if(gameOver) return;
+function drawProjectiles(){
+  projectiles.forEach(p=>{
+    rect(p.x, p.y, p.w, p.h, p.color);
+    ctx.globalAlpha = 0.2;
+    rect(p.x-4, p.y-4, p.w+8, p.h+8, p.color);
+    ctx.globalAlpha = 1;
+  });
+}
 
-  if(keys["w"] && player.y >= groundY){
-    player.vy = -12;
-  }
+function updatePoison(){
+  poisonClouds.forEach(c=>{
+    c.life--;
+    c.r = 25 + Math.sin(c.life*0.08)*6;
 
-  if(keys["a"]){
-    player.vx = -3.5;
-    player.facing = -1;
-  } else if(keys["d"]){
-    player.vx = 3.5;
-    player.facing = 1;
+    // damage over time if inside
+    let px = player.x + player.w/2;
+    let py = player.y + 30;
+    let dx = px - c.x;
+    let dy = py - c.y;
+    let dist = Math.sqrt(dx*dx+dy*dy);
+
+    if(dist < c.r){
+      if(frameCount % 20 === 0){
+        takeDamage(player, 4, 0);
+        spark(player.x+player.w/2, player.y+20, "#55ff55", "#bbbbbb");
+      }
+    }
+  });
+
+  poisonClouds = poisonClouds.filter(c=>c.life>0);
+}
+
+function drawPoison(){
+  poisonClouds.forEach(c=>{
+    ctx.globalAlpha = 0.15;
+    rect(c.x-c.r, c.y-c.r, c.r*2, c.r*2, "#55ff55");
+    ctx.globalAlpha = 1;
+  });
+}
+
+function playerControls(){
+  player.animT++;
+  player.hitstun = Math.max(0, player.hitstun-1);
+  player.atkCD = Math.max(0, player.atkCD-1);
+  player.dashCD = Math.max(0, player.dashCD-1);
+  player.invuln = Math.max(0, player.invuln-1);
+
+  player.block = keys["shift"];
+
+  if(player.hitstun > 0){
+    player.state = "hurt";
   } else {
-    player.vx *= 0.75;
+    let speed = 3.4;
+
+    if(keys["a"]){
+      player.vx = -speed;
+      player.facing = -1;
+      player.state = "walk";
+    } else if(keys["d"]){
+      player.vx = speed;
+      player.facing = 1;
+      player.state = "walk";
+    } else {
+      player.vx *= 0.75;
+      if(player.atkCD <= 0) player.state = player.block ? "block" : "idle";
+    }
+
+    if(keys["w"] && player.y >= groundY){
+      player.vy = -12.5;
+      player.state = "jump";
+    }
+
+    // dash
+    if(keys[" "] && player.dashCD <= 0){
+      player.state = "dash";
+      player.vx = player.facing * 13;
+      player.invuln = 10;
+      player.dashCD = 55;
+      screenShake(4);
+      spark(player.x+player.w/2, player.y+40, "#00ccff", "#fff");
+    }
+
+    // attacks
+    if(keys["j"] && player.atkCD <= 0){
+      player.state = "punch";
+      player.atkCD = 16;
+      if(overlaps(attackBox(player,"punch"), bossBox())){
+        takeDamage(boss, 11, player.facing*8, true);
+        spark(boss.x+boss.w/2, boss.y+20);
+      }
+    }
+
+    if(keys["k"] && player.atkCD <= 0){
+      player.state = "kick";
+      player.atkCD = 24;
+      if(overlaps(attackBox(player,"kick"), bossBox())){
+        takeDamage(boss, 15, player.facing*11, true);
+        spark(boss.x+boss.w/2, boss.y+20);
+      }
+    }
+
+    if(keys["l"] && player.ulti >= 100 && player.atkCD <= 0){
+      player.state = "ulti";
+      player.atkCD = 55;
+      player.ulti = 0;
+      speak("ÇARRAK ULTI!");
+      screenShake(16);
+
+      if(overlaps(attackBox(player,"ulti"), bossBox())){
+        takeDamage(boss, 42, player.facing*18, true);
+        spark(boss.x+boss.w/2, boss.y+10, "#00ccff", "#cc00ff");
+      }
+    }
   }
 
-  player.atkCooldown = Math.max(0, player.atkCooldown-1);
-
-  if(keys["j"] && player.atkCooldown <= 0){
-    player.state="punch";
-    player.atkCooldown = 20;
-    playerAttack("punch");
-  } else if(keys["k"] && player.atkCooldown <= 0){
-    player.state="kick";
-    player.atkCooldown = 30;
-    playerAttack("kick");
-  } else {
-    if(player.atkCooldown < 8) player.state="idle";
-  }
-
+  // physics
   player.vy += gravity;
   player.x += player.vx;
   player.y += player.vy;
@@ -261,113 +792,322 @@ function update(){
     player.vy = 0;
   }
 
-  // camera follows player
-  cameraX = player.x - 200;
-  if(cameraX < 0) cameraX = 0;
+  player.x = clamp(player.x, 40, canvas.width-80);
+}
 
-  // enemy logic
-  enemies.forEach(e=>{
-    if(e.hp <= 0) return;
+function drawBackground(){
+  rect(0,0,canvas.width,canvas.height,"#070707");
 
-    e.hitstun = Math.max(0, e.hitstun-1);
-    e.atkCooldown = Math.max(0, e.atkCooldown-1);
-
-    let dist = player.x - e.x;
-    e.facing = dist>0 ? 1 : -1;
-
-    if(e.hitstun > 0){
-      e.vx *= 0.8;
-    } else {
-      if(Math.abs(dist) > 70){
-        e.vx = e.facing * 2.1;
-      } else {
-        e.vx *= 0.8;
-        if(e.atkCooldown <= 0){
-          // attack
-          e.atkCooldown = 40;
-          if(Math.random() < 0.7){
-            // hit player
-            player.hp -= 8;
-            hitSpark(player.x+player.w/2, player.y+20);
-          } else {
-            player.hp -= 12;
-            hitSpark(player.x+player.w/2, player.y+20);
-          }
-        }
-      }
-    }
-
-    e.vy += gravity;
-    e.x += e.vx;
-    e.y += e.vy;
-
-    if(e.y > groundY){
-      e.y = groundY;
-      e.vy = 0;
-    }
-  });
-
-  // remove dead enemies occasionally
-  enemies = enemies.filter(e => e.hp > -20);
-
-  // spawn enemies if not enough
-  if(enemies.filter(e=>e.hp>0).length < 4 && Math.random() < 0.05){
-    spawnEnemy();
+  // city blocks
+  for(let i=0;i<40;i++){
+    let bx = i*30;
+    let h = 40 + (i%8)*18;
+    rect(bx, 290-h, 26, h, "rgba(255,255,255,0.05)");
   }
 
-  // particles
-  particles.forEach(p=>{
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.2;
-    p.life--;
-  });
-  particles = particles.filter(p=>p.life>0);
+  // floor
+  rect(0, groundY+60, canvas.width, canvas.height, "#030303");
+  rect(0, groundY+55, canvas.width, 10, "#1f1f1f");
 
-  // update UI
-  uiHp.textContent = player.hp;
-  uiScore.textContent = score;
-
-  // hide intro
-  if(keys["w"]||keys["a"]||keys["s"]||keys["d"]||keys["j"]||keys["k"]) {
-    msg.style.display = "none";
+  // neon strips
+  for(let i=0;i<22;i++){
+    rect(i*50, groundY+58, 20, 2, "rgba(255,0,51,0.25)");
   }
 
-  if(player.hp <= 0){
-    gameOver = true;
-    msg.style.display="block";
-    msg.innerHTML = "💀 ERGÜNUS MAXIMUS DÜŞTÜ<br><span style='font-size:16px;'>Patlaklık kazandı.</span><br><br>Sayfayı yenile";
-  }
+  text("ÇARRAKVERSE - PIXEL BOSS RUSH", 20, 30, 18, "#ffcc00");
+}
+
+function updateHUD(){
+  pHPBar.style.width = (player.hp/player.maxHp*100) + "%";
+  bHPBar.style.width = (boss.hp/boss.maxHp*100) + "%";
+  pULTIBar.style.width = (player.ulti/player.maxUlti*100) + "%";
+
+  pInfo.textContent = `Combo: ${player.combo} | Skor: ${Math.floor(player.score)}`;
+  bInfo.textContent = `Phase: ${boss.phase}`;
+  bossNameEl.textContent = "BOSS: " + boss.name;
 }
 
 function draw(){
+  let sx=0, sy=0;
+  if(shake>0){
+    sx = rand(-shake,shake);
+    sy = rand(-shake,shake);
+    shake *= 0.85;
+    if(shake < 0.5) shake = 0;
+  }
+
+  ctx.save();
+  ctx.translate(sx, sy);
+
   drawBackground();
 
-  // draw enemies
-  enemies.forEach(e=>{
-    if(e.hp > 0) drawEnemy(e);
+  drawPoison();
+  drawProjectiles();
+
+  // fighters
+  drawFighter(player.x, player.y, player.w, player.h,
+    "#00ccff", "#ffcc00",
+    player.facing,
+    player.state,
+    player.animT,
+    "ÇARRAK"
+  );
+
+  drawFighter(boss.x, boss.y, boss.w, boss.h,
+    boss.colorBody, boss.colorHead,
+    boss.facing,
+    boss.state,
+    boss.animT,
+    boss.name
+  );
+
+  drawParticles();
+  ctx.restore();
+}
+
+let frameCount = 0;
+let levelIndex = 0;
+let playing = false;
+let startTime = 0;
+
+function showMenu(){
+  overlay.style.display = "block";
+  overlay.innerHTML = `
+    <div style="font-size:34px; font-weight:bold;">ÇARRAKVERSE</div>
+    <div class="tiny">Pixel Boss Rush | Kara mizah absürt evren</div>
+    <br>
+    <div class="tiny">
+      Kontroller:<br>
+      <b>A/D</b> yürü - <b>W</b> zıpla - <b>J</b> yumruk - <b>K</b> tekme<br>
+      <b>Shift</b> block - <b>Space</b> dash - <b>L</b> ulti
+    </div>
+    <div class="btnRow">
+      <button onclick="startStory()">Hikaye Modu</button>
+      <button onclick="startBossRush()">Boss Rush</button>
+      <button onclick="showLeaderboard()">Leaderboard</button>
+    </div>
+    <div class="tiny" style="margin-top:14px; opacity:0.7;">
+      Not: Bu evren tamamen hayal ürünüdür. Her şey absürt parodidir.
+    </div>
+  `;
+}
+
+function showLeaderboard(){
+  const data = JSON.parse(localStorage.getItem("carrak_leaderboard") || "[]");
+  let html = `<div style="font-size:28px;font-weight:bold;">🏆 Patlaklık Leaderboard</div><br>`;
+
+  if(data.length === 0){
+    html += `<div class="tiny">Henüz kimse destan yazmamış...</div>`;
+  } else {
+    html += `<div style="font-size:14px;text-align:left;display:inline-block;">`;
+    data.slice(0,10).forEach((x,i)=>{
+      html += `${i+1}. <b>${x.name}</b> | Skor: ${x.score} | Süre: ${x.time}s<br>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `
+    <div class="btnRow">
+      <button onclick="showMenu()">Geri</button>
+      <button onclick="resetLeaderboard()">Sıfırla</button>
+    </div>
+  `;
+
+  overlay.style.display="block";
+  overlay.innerHTML = html;
+}
+
+function resetLeaderboard(){
+  localStorage.removeItem("carrak_leaderboard");
+  showLeaderboard();
+}
+
+function introLevel(){
+  playing = false;
+  boss = createBoss(levelIndex);
+
+  overlay.style.display="block";
+  overlay.innerHTML = `
+    <div style="font-size:26px;font-weight:bold;">${boss.name}</div>
+    <div class="tiny" style="white-space:pre-line; margin-top:10px;">
+${boss.intro}
+    </div>
+    <div class="btnRow">
+      <button onclick="beginFight()">Dövüş Başlat</button>
+      <button onclick="showMenu()">Menü</button>
+    </div>
+  `;
+
+  // boss talks
+  setTimeout(()=>{
+    speak(boss.voiceLines[Math.floor(Math.random()*boss.voiceLines.length)]);
+  }, 500);
+}
+
+function beginFight(){
+  overlay.style.display="none";
+  playing = true;
+
+  // reset player partially
+  player.x = 220;
+  player.y = groundY;
+  player.vx = 0;
+  player.vy = 0;
+  player.combo = 0;
+  player.hitstun = 0;
+
+  boss.x = 700;
+  boss.y = groundY;
+  boss.vx = 0;
+  boss.vy = 0;
+
+  projectiles = [];
+  poisonClouds = [];
+}
+
+function startStory(){
+  levelIndex = 0;
+  player.hp = player.maxHp;
+  player.ulti = 0;
+  player.score = 0;
+  startTime = Date.now();
+  introLevel();
+}
+
+function startBossRush(){
+  levelIndex = 0;
+  player.hp = player.maxHp;
+  player.ulti = 0;
+  player.score = 0;
+  startTime = Date.now();
+  introLevel();
+}
+
+function winBoss(){
+  playing = false;
+  levelIndex++;
+
+  if(levelIndex >= BOSSES.length){
+    const endTime = Math.floor((Date.now() - startTime)/1000);
+
+    overlay.style.display="block";
+    overlay.innerHTML = `
+      <div style="font-size:32px;font-weight:bold;">🏆 ÇARRAKVERSE TAMAMLANDI</div>
+      <div class="tiny" style="margin-top:10px;">
+        Skor: <b>${Math.floor(player.score)}</b><br>
+        Süre: <b>${endTime}s</b><br><br>
+        Finalde patlaklık çöktü.<br>
+        Çarrak tarihe geçti.
+      </div>
+      <div class="btnRow">
+        <button onclick="saveScore(${endTime})">Skoru Kaydet</button>
+        <button onclick="showMenu()">Menü</button>
+      </div>
+    `;
+    speak("Zafer. Çarrakverse artık senin.");
+    return;
+  }
+
+  overlay.style.display="block";
+  overlay.innerHTML = `
+    <div style="font-size:28px;font-weight:bold;">✅ Boss düştü!</div>
+    <div class="tiny">Yeni bölüm açıldı...</div>
+    <div class="btnRow">
+      <button onclick="introLevel()">Devam Et</button>
+      <button onclick="showMenu()">Menü</button>
+    </div>
+  `;
+
+  speak("Devam et. Patlaklık daha bitmedi.");
+}
+
+function saveScore(timeSec){
+  let name = prompt("Leaderboard ismin ne olsun? (örn: KralÇarrak)");
+  if(!name) name = "AnonÇarrak";
+
+  let data = JSON.parse(localStorage.getItem("carrak_leaderboard") || "[]");
+  data.push({
+    name,
+    score: Math.floor(player.score),
+    time: timeSec
   });
 
-  // draw player
-  drawPlayer();
-
-  // particles
-  particles.forEach(p=>{
-    ctx.globalAlpha = p.life/18;
-    rect(p.x - cameraX, p.y, 4, 4, p.color);
-    ctx.globalAlpha = 1;
+  data.sort((a,b)=>{
+    // score desc, time asc
+    if(b.score !== a.score) return b.score - a.score;
+    return a.time - b.time;
   });
+
+  localStorage.setItem("carrak_leaderboard", JSON.stringify(data));
+  showLeaderboard();
+}
+
+function loseGame(){
+  playing = false;
+  overlay.style.display="block";
+  overlay.innerHTML = `
+    <div style="font-size:32px;font-weight:bold;">💀 ÇARRAK DÜŞTÜ</div>
+    <div class="tiny" style="margin-top:10px;">
+      Boss: <b>${boss.name}</b><br>
+      Skor: <b>${Math.floor(player.score)}</b><br><br>
+      Çarrak yere düştü ama cringe asla ölmez...
+    </div>
+    <div class="btnRow">
+      <button onclick="introLevel()">Tekrar Dene</button>
+      <button onclick="showMenu()">Menü</button>
+    </div>
+  `;
+  speak("Çarrak... yenildin.");
+}
+
+function update(){
+  frameCount++;
+
+  if(!boss){
+    return;
+  }
+
+  if(!playing){
+    updateHUD();
+    return;
+  }
+
+  playerControls();
+  bossAI();
+
+  updateProjectiles();
+  updatePoison();
+  updateParticles();
+
+  // boss voice random taunt
+  if(frameCount % 360 === 0 && Math.random() < 0.35){
+    speak(boss.voiceLines[Math.floor(Math.random()*boss.voiceLines.length)]);
+  }
+
+  // passive ulti regen
+  if(frameCount % 40 === 0){
+    player.ulti = clamp(player.ulti + 2, 0, player.maxUlti);
+  }
+
+  // win/lose checks
+  if(player.hp <= 0){
+    loseGame();
+  }
+
+  if(boss.hp <= 0){
+    winBoss();
+  }
+
+  updateHUD();
 }
 
 function loop(){
-  update();
   draw();
+  update();
   requestAnimationFrame(loop);
 }
 
-// initial enemies
-for(let i=0;i<3;i++) spawnEnemy();
-
+showMenu();
 loop();
 </script>
 
