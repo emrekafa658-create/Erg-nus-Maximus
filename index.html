@@ -1,1115 +1,826 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Çarrakverse: Pixel Boss Rush</title>
-<style>
-  body { margin:0; background:#000; overflow:hidden; font-family:Arial; }
-  canvas {
-    display:block; margin:0 auto;
-    background:#0b0b0b;
-    image-rendering: pixelated;
-  }
-  .hud {
-    position:absolute;
-    top:0; left:0;
-    width:100%;
-    padding:10px;
-    display:flex;
-    justify-content:space-between;
-    gap:10px;
-    color:#fff;
-    text-shadow:0 0 6px #000;
-    pointer-events:none;
-    font-family: monospace;
-  }
-  .panel {
-    background: rgba(0,0,0,0.5);
-    border:1px solid rgba(255,255,255,0.12);
-    padding:10px;
-    border-radius:12px;
-    min-width:320px;
-  }
-  .bar {
-    width: 280px;
-    height: 14px;
-    border:1px solid rgba(255,255,255,0.4);
-    background:#111;
-    margin-top:4px;
-    position:relative;
-    border-radius:4px;
-    overflow:hidden;
-  }
-  .fill {
-    height:100%;
-    width:100%;
-    background: linear-gradient(90deg, #00ff88, #ffcc00, #ff0033);
-  }
-  .ultifill {
-    height:100%;
-    width:0%;
-    background: linear-gradient(90deg, #00ccff, #cc00ff, #ff00aa);
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PSP Fighter - Pixel Arena</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #050608;
+      overflow: hidden;
+      font-family: monospace;
+      user-select: none;
+    }
 
-  .center {
-    position:absolute;
-    top:50%; left:50%;
-    transform:translate(-50%,-50%);
-    color:#fff;
-    font-size:22px;
-    text-align:center;
-    text-shadow:0 0 12px #000;
-    width:80%;
-  }
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
 
-  .btnRow {
-    margin-top:16px;
-    display:flex;
-    justify-content:center;
-    gap:10px;
-    flex-wrap:wrap;
-    pointer-events:auto;
-  }
-  button {
-    background:#111;
-    color:#fff;
-    border:1px solid rgba(255,255,255,0.2);
-    padding:10px 14px;
-    border-radius:10px;
-    cursor:pointer;
-    font-weight:bold;
-  }
-  button:hover {
-    background:#1d1d1d;
-  }
+    .hud {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      padding: 10px;
+      box-sizing: border-box;
+      color: white;
+      text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
 
-  .tiny {
-    font-size:14px;
-    opacity:0.85;
-  }
-</style>
+    .barWrap {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .hpBox {
+      width: 40%;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.9);
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 0 12px rgba(255,255,255,0.12);
+    }
+
+    .hpFill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #00ff77, #ffee00, #ff3300);
+      transition: width 0.08s linear;
+    }
+
+    .nameRow {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 12px;
+      opacity: 0.95;
+    }
+
+    .centerText {
+      position: absolute;
+      width: 100%;
+      text-align: center;
+      top: 40%;
+      font-size: 42px;
+      color: white;
+      letter-spacing: 3px;
+      text-shadow: 4px 4px 0px rgba(0,0,0,0.9);
+      pointer-events: none;
+      opacity: 0;
+      transform: scale(1.1);
+      transition: opacity 0.2s ease;
+    }
+
+    .hint {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+      background: rgba(0,0,0,0.35);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .winCount {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.8);
+      background: rgba(0,0,0,0.35);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+  </style>
 </head>
 <body>
-
-<div class="hud">
-  <div class="panel">
-    <b>OYUNCU: ÇARRAK</b><br>
-    HP
-    <div class="bar"><div id="pHP" class="fill"></div></div>
-    ULTI
-    <div class="bar"><div id="pULTI" class="ultifill"></div></div>
-    <div class="tiny" id="pInfo">Combo: 0 | Skor: 0</div>
+  <div class="hud">
+    <div class="barWrap">
+      <div class="hpBox"><div id="hpP" class="hpFill"></div></div>
+      <div style="font-size:14px; opacity:0.9;">ROUND 1</div>
+      <div class="hpBox"><div id="hpE" class="hpFill"></div></div>
+    </div>
+    <div class="nameRow">
+      <div><b>PLAYER</b> - Sen</div>
+      <div><b>CPU</b> - Rakip</div>
+    </div>
   </div>
 
-  <div class="panel" style="text-align:right;">
-    <b id="bossName">BOSS: ???</b><br>
-    HP
-    <div class="bar"><div id="bHP" class="fill"></div></div>
-    <div class="tiny" id="bInfo">Phase: 1</div>
+  <div id="centerText" class="centerText">FIGHT!</div>
+
+  <div class="hint">
+    Kontroller: <b>A/D</b> yürü • <b>W</b> zıpla • <b>S</b> eğil • <b>J</b> yumruk • <b>K</b> tekme • <b>L</b> dash
   </div>
-</div>
 
-<div class="center" id="overlay"></div>
+  <div id="wins" class="winCount">Wins: 0</div>
 
-<canvas id="game" width="960" height="540"></canvas>
+  <canvas id="game"></canvas>
 
 <script>
-/* ===========================
-   ÇARRAKVERSE: PIXEL BOSS GAME
-   Tek dosya, canvas fighter
-=========================== */
+(() => {
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
 
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
+  const hpP = document.getElementById("hpP");
+  const hpE = document.getElementById("hpE");
+  const centerText = document.getElementById("centerText");
+  const winsUI = document.getElementById("wins");
 
-const overlay = document.getElementById("overlay");
-const pHPBar = document.getElementById("pHP");
-const bHPBar = document.getElementById("bHP");
-const pULTIBar = document.getElementById("pULTI");
-const pInfo = document.getElementById("pInfo");
-const bInfo = document.getElementById("bInfo");
-const bossNameEl = document.getElementById("bossName");
+  // PSP vibe
+  const BASE_SCALE = 3; // pixel upscale
+  const LOGICAL_W = 320;
+  const LOGICAL_H = 180;
 
-const keys = {};
-window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
-window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+  canvas.width = LOGICAL_W;
+  canvas.height = LOGICAL_H;
 
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-function rand(min,max){ return min + Math.random()*(max-min); }
-
-function rect(x,y,w,h,c){
-  ctx.fillStyle = c;
-  ctx.fillRect(x,y,w,h);
-}
-
-function text(txt,x,y,size=14,color="#fff"){
-  ctx.fillStyle = color;
-  ctx.font = size + "px monospace";
-  ctx.fillText(txt,x,y);
-}
-
-function speak(line){
-  try{
-    const u = new SpeechSynthesisUtterance(line);
-    u.lang = "tr-TR";
-    u.rate = 1.05;
-    u.pitch = 0.9;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  }catch(e){}
-}
-
-let shake = 0;
-function screenShake(power=6){
-  shake = Math.max(shake, power);
-}
-
-let particles = [];
-function spark(x,y, colorA="#ffcc00", colorB="#ff0033"){
-  for(let i=0;i<10;i++){
-    particles.push({
-      x,y,
-      vx: rand(-2.8,2.8),
-      vy: rand(-3.5,-0.5),
-      life: rand(12,22),
-      c: Math.random()<0.5 ? colorA : colorB
-    });
+  function fitCanvas() {
+    const scale = Math.floor(Math.min(window.innerWidth / LOGICAL_W, window.innerHeight / LOGICAL_H));
+    canvas.style.width = (LOGICAL_W * scale) + "px";
+    canvas.style.height = (LOGICAL_H * scale) + "px";
   }
-}
+  window.addEventListener("resize", fitCanvas);
+  fitCanvas();
 
-function drawParticles(){
-  particles.forEach(p=>{
-    ctx.globalAlpha = clamp(p.life/22, 0, 1);
-    rect(p.x, p.y, 4, 4, p.c);
-    ctx.globalAlpha = 1;
-  });
-}
+  // Persistent wins
+  let wins = parseInt(localStorage.getItem("pspFighterWins") || "0", 10);
+  winsUI.textContent = "Wins: " + wins;
 
-function updateParticles(){
-  particles.forEach(p=>{
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vy += 0.25;
-    p.life -= 1;
-  });
-  particles = particles.filter(p=>p.life>0);
-}
+  // Load player image (your photo)
+  const playerImg = new Image();
+  playerImg.src = "player.png";
 
-const gravity = 0.75;
-const groundY = 420;
+  // We'll generate a pixel sprite from your photo
+  // and then animate it procedurally (limbs movement)
+  function makePixelSprite(img, w=32, h=48) {
+    const off = document.createElement("canvas");
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext("2d");
 
-const player = {
-  name:"Çarrak",
-  x: 220,
-  y: groundY,
-  vx: 0,
-  vy: 0,
-  w: 40,
-  h: 62,
-  hp: 120,
-  maxHp: 120,
-  ulti: 0,
-  maxUlti: 100,
-  facing: 1,
-  state: "idle",
-  animT: 0,
-  hitstun: 0,
-  atkCD: 0,
-  dashCD: 0,
-  block: false,
-  combo: 0,
-  score: 0,
-  invuln: 0
-};
+    // crop center-ish
+    const sx = Math.max(0, (img.width - img.height) / 2);
+    const sy = 0;
+    const sw = Math.min(img.width, img.height);
+    const sh = sw;
 
-let boss = null;
+    octx.imageSmoothingEnabled = true;
+    octx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
 
-const BOSSES = [
-  {
-    id:"sivas_kangali",
-    name:"SİVAS KANGALI",
-    maxHp: 140,
-    colorBody:"#c49a6c",
-    colorHead:"#ffddaa",
-    voiceLines:[
-      "Hav hav değil... bu bir manifesto.",
-      "Çarrak... kemiklerin iptal.",
-      "Sivas'tan selam getirdim!"
-    ],
-    ai: "hound",
-    intro: "Bölüm 1: SİVAS KANGALI\n\nKangal arenaya girdi.\nAurası: 'çoban wifi'si'."
-  },
-  {
-    id:"muhalefet",
-    name:"MUHALEFET",
-    maxHp: 160,
-    colorBody:"#00ccff",
-    colorHead:"#ffffff",
-    voiceLines:[
-      "Biz geliyoruz ama biraz yavaş...",
-      "Plan var ama kimde olduğunu bilmiyoruz.",
-      "Çarrak... seni gündeme alacağız."
-    ],
-    ai: "debate",
-    intro: "Bölüm 2: MUHALEFET\n\nSözlü saldırı uzmanı.\nSilahı: 'Gündem Değiştirme'."
-  },
-  {
-    id:"eleren",
-    name:"ELEREN",
-    maxHp: 180,
-    colorBody:"#cc00ff",
-    colorHead:"#ffcc00",
-    voiceLines:[
-      "Ben Eleren. Benimle tartışma.",
-      "Chat beni seviyor, sen kimsin?",
-      "Çarrak... sana cringe basacağım."
-    ],
-    ai: "trickster",
-    intro: "Bölüm 3: ELEREN\n\nArena ışıkları karardı.\nEleren glitch açtı."
-  },
-  {
-    id:"kokusukviyuyuyuy",
-    name:"KOKUŞUKVİYUYUYUY",
-    maxHp: 210,
-    colorBody:"#55ff55",
-    colorHead:"#bbbbbb",
-    voiceLines:[
-      "Benim adım bile bug.",
-      "Kokuşuk... ve gururluyum.",
-      "Çarrak, senin FPS'in düşecek."
-    ],
-    ai: "toxic",
-    intro: "Bölüm 4: KOKUŞUKVİYUYUYUY\n\nHavada 'lag kokusu' var.\nBu boss bir hata gibi."
-  },
-  {
-    id:"ergunus_maximus",
-    name:"ERGÜNUS MAXIMUS",
-    maxHp: 260,
-    colorBody:"#ff0033",
-    colorHead:"#bbbbbb",
-    voiceLines:[
-      "Ben son bossum. Beni yenemezsin.",
-      "Çarrak... senin kaderin patlak.",
-      "Benim egom bile boss fight."
-    ],
-    ai: "final",
-    intro: "Bölüm 5: ERGÜNUS MAXIMUS\n\nFinal kapısı açıldı.\nGökyüzü patladı."
+    // Pixelate: draw into smaller buffer then scale up
+    const px = document.createElement("canvas");
+    px.width = 16;
+    px.height = 24;
+    const pctx = px.getContext("2d");
+    pctx.imageSmoothingEnabled = true;
+    pctx.drawImage(off, 0, 0, px.width, px.height);
+
+    // Posterize (reduce colors)
+    const imgData = pctx.getImageData(0, 0, px.width, px.height);
+    const d = imgData.data;
+
+    function posterize(v) {
+      // PSP-ish palette compression
+      const levels = 5;
+      return Math.round((v / 255) * levels) * (255 / levels);
+    }
+
+    for (let i=0; i<d.length; i+=4) {
+      d[i] = posterize(d[i]);       // r
+      d[i+1] = posterize(d[i+1]);   // g
+      d[i+2] = posterize(d[i+2]);   // b
+      // alpha stays
+    }
+    pctx.putImageData(imgData, 0, 0);
+
+    // Now scale to final sprite
+    const final = document.createElement("canvas");
+    final.width = w;
+    final.height = h;
+    const fctx = final.getContext("2d");
+    fctx.imageSmoothingEnabled = false;
+    fctx.drawImage(px, 0, 0, px.width, px.height, 0, 0, w, h);
+
+    return final;
   }
-];
 
-function createBoss(index){
-  const b = BOSSES[index];
-  return {
-    index,
-    id: b.id,
-    name: b.name,
-    x: 700,
-    y: groundY,
-    vx: 0,
-    vy: 0,
-    w: 46,
-    h: 70,
-    hp: b.maxHp,
-    maxHp: b.maxHp,
-    phase: 1,
-    rage: 0,
-    hitstun: 0,
-    atkCD: 0,
-    specialCD: 0,
-    facing: -1,
-    state: "idle",
-    animT: 0,
-    colorBody: b.colorBody,
-    colorHead: b.colorHead,
-    ai: b.ai,
-    voiceLines: b.voiceLines,
-    intro: b.intro
+  // Arena + camera
+  const world = {
+    w: 1200,
+    floorY: 145,
   };
-}
 
-function playerBox(){
-  return {x:player.x, y:player.y, w:player.w, h:player.h};
-}
-function bossBox(){
-  return {x:boss.x, y:boss.y, w:boss.w, h:boss.h};
-}
-function overlaps(a,b){
-  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
-}
+  const keys = {};
+  window.addEventListener("keydown", (e) => keys[e.key.toLowerCase()] = true);
+  window.addEventListener("keyup", (e) => keys[e.key.toLowerCase()] = false);
 
-function attackBox(entity, type){
-  let range = 40;
-  let height = 24;
-  let offsetY = 20;
-
-  if(type==="kick"){ range = 55; height = 28; }
-  if(type==="upper"){ range = 38; height = 38; offsetY = 5; }
-  if(type==="ulti"){ range = 120; height = 60; offsetY = 0; }
-
-  let ax = entity.facing === 1 ? entity.x + entity.w : entity.x - range;
-  let ay = entity.y + offsetY;
-  return {x:ax, y:ay, w:range, h:height};
-}
-
-function takeDamage(target, dmg, knockX, isBoss=false){
-  if(target.invuln && target.invuln>0) return;
-
-  if(target === player && player.block){
-    dmg = Math.floor(dmg * 0.35);
-    spark(player.x+player.w/2, player.y+20, "#00ccff", "#ffffff");
+  // Combat system
+  function rectsOverlap(a, b) {
+    return (
+      a.x < b.x + b.w &&
+      a.x + a.w > b.x &&
+      a.y < b.y + b.h &&
+      a.y + a.h > b.y
+    );
   }
 
-  target.hp -= dmg;
-  if(target.hp < 0) target.hp = 0;
-
-  if(target === player){
-    player.hitstun = 10;
-    player.vx += knockX;
-    player.combo = 0;
-    screenShake(6);
-  } else {
-    boss.hitstun = 10;
-    boss.vx += knockX;
-    player.combo += 1;
-    player.score += dmg * (1 + player.combo*0.08);
-    player.ulti = clamp(player.ulti + dmg*0.6, 0, player.maxUlti);
-    screenShake(7);
-  }
-}
-
-function drawFighter(x,y,w,h, body, head, facing, state, animT, label){
-  // shadow
-  rect(x-6, y+h, w+12, 6, "rgba(0,0,0,0.55)");
-
-  // slight animation bounce
-  let bounce = Math.sin(animT*0.2) * 2;
-
-  // legs (walk animation)
-  let legOffset = (state==="walk") ? Math.sin(animT*0.3)*4 : 0;
-  rect(x+6, y+44 + bounce + legOffset, 10, 18, body);
-  rect(x+24, y+44 + bounce - legOffset, 10, 18, body);
-
-  // torso
-  rect(x+6, y+18 + bounce, 28, 28, body);
-
-  // head
-  rect(x+10, y+2 + bounce, 20, 18, head);
-
-  // eyes
-  rect(x + (facing===1?20:14), y+8 + bounce, 3, 3, "#000");
-  rect(x + (facing===1?26:20), y+8 + bounce, 3, 3, "#000");
-
-  // mouth (changes on hit)
-  if(state==="hurt"){
-    rect(x+16, y+15 + bounce, 10, 2, "#ff0033");
-  } else {
-    rect(x+16, y+14 + bounce, 10, 2, "#000");
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
   }
 
-  // arm animation
-  let armLen = 14;
-  if(state==="punch") armLen = 26;
-  if(state==="kick") armLen = 22;
-  if(state==="upper") armLen = 20;
-  if(state==="ulti") armLen = 40;
-  if(state==="block") armLen = 10;
-
-  if(facing===1){
-    rect(x+32, y+22 + bounce, armLen, 8, "#fff");
-  } else {
-    rect(x-armLen, y+22 + bounce, armLen, 8, "#fff");
+  function lerp(a, b, t) {
+    return a + (b-a) * t;
   }
 
-  // aura for ulti
-  if(state==="ulti"){
-    ctx.globalAlpha = 0.18;
-    rect(x-14, y-14, w+28, h+28, "#cc00ff");
-    rect(x-20, y-20, w+40, h+40, "#00ccff");
-    ctx.globalAlpha = 1;
+  // Screen shake
+  let shake = 0;
+  function doShake(amount) {
+    shake = Math.max(shake, amount);
   }
 
-  // label
-  text(label, x-10, y-10, 12, "rgba(255,255,255,0.75)");
-}
-
-function bossAI(){
-  if(!boss) return;
-
-  boss.animT++;
-
-  if(boss.hp <= boss.maxHp*0.55 && boss.phase === 1){
-    boss.phase = 2;
-    speak(boss.name + " ikinci forma geçti!");
-    screenShake(12);
-    spark(boss.x+20, boss.y+20, "#ff0033", "#ffffff");
-    boss.specialCD = 50;
-  }
-
-  boss.hitstun = Math.max(0, boss.hitstun-1);
-  boss.atkCD = Math.max(0, boss.atkCD-1);
-  boss.specialCD = Math.max(0, boss.specialCD-1);
-
-  if(boss.hitstun > 0){
-    boss.vx *= 0.82;
-    boss.state = "hurt";
-    return;
-  }
-
-  let dist = player.x - boss.x;
-  let abs = Math.abs(dist);
-  boss.facing = dist>0 ? 1 : -1;
-
-  let baseSpeed = 2.2 + boss.phase*0.8;
-
-  // Different boss behaviors
-  if(boss.ai === "hound"){
-    // rush & bite
-    if(abs > 120){
-      boss.vx = boss.facing * (baseSpeed+1.2);
-      boss.state = "walk";
-    } else {
-      boss.vx *= 0.8;
-      if(boss.atkCD <= 0){
-        boss.state = "kick";
-        boss.atkCD = 35;
-      }
-      if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.3){
-        boss.state="ulti";
-        boss.specialCD = 90;
-        boss.atkCD = 55;
-        screenShake(10);
-        speak("HAV HAV KOMBO!");
-        // AoE bite
-        if(abs < 160){
-          takeDamage(player, 18, boss.facing*8);
-          spark(player.x+player.w/2, player.y+20, "#c49a6c", "#ff0033");
-        }
-      }
-    }
-  }
-
-  if(boss.ai === "debate"){
-    // stays mid-range and throws "argument"
-    if(abs < 140){
-      boss.vx = -boss.facing * baseSpeed;
-      boss.state="walk";
-    } else if(abs > 260){
-      boss.vx = boss.facing * baseSpeed;
-      boss.state="walk";
-    } else {
-      boss.vx *= 0.85;
-      boss.state="idle";
-      if(boss.atkCD<=0){
-        boss.atkCD = 45 - boss.phase*8;
-        // argument projectile (fake)
-        projectiles.push({
-          x: boss.x + boss.w/2,
-          y: boss.y + 25,
-          vx: boss.facing * (5.5 + boss.phase*1.2),
-          w: 14,
-          h: 10,
-          dmg: 10 + boss.phase*3,
-          color:"#00ccff",
-          type:"argument"
-        });
-        speak("GÜNDEM!");
-      }
-    }
-  }
-
-  if(boss.ai === "trickster"){
-    // teleport-ish dash
-    if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.02){
-      boss.specialCD = 90;
-      boss.x = clamp(player.x + rand(-220,220), 60, canvas.width-100);
-      screenShake(8);
-      spark(boss.x+20, boss.y+20, "#cc00ff", "#ffcc00");
-      speak("GLITCH ATTIM.");
-    }
-
-    if(abs > 110){
-      boss.vx = boss.facing * (baseSpeed+0.7);
-      boss.state="walk";
-    } else {
-      boss.vx *= 0.7;
-      if(boss.atkCD<=0){
-        boss.atkCD = 35 - boss.phase*6;
-        boss.state = Math.random()<0.5 ? "punch" : "upper";
-      }
-    }
-  }
-
-  if(boss.ai === "toxic"){
-    // poison cloud + slow hits
-    if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.03){
-      boss.specialCD = 100;
-      speak("KOKU SALDIM!");
-      poisonClouds.push({
-        x: boss.x + boss.facing*70,
-        y: boss.y + 25,
-        r: 10,
-        life: 180
+  // Hit sparks particles
+  const particles = [];
+  function spawnHitSparks(x, y, dir) {
+    for (let i=0; i<12; i++) {
+      particles.push({
+        x, y,
+        vx: (Math.random()*1.8 + 0.4) * dir,
+        vy: (Math.random()*-1.8 - 0.5),
+        life: 18 + Math.random()*12,
       });
-      screenShake(8);
-    }
-
-    if(abs > 150){
-      boss.vx = boss.facing * (baseSpeed);
-      boss.state="walk";
-    } else {
-      boss.vx *= 0.85;
-      if(boss.atkCD<=0){
-        boss.atkCD = 40 - boss.phase*5;
-        boss.state="kick";
-      }
     }
   }
 
-  if(boss.ai === "final"){
-    // very aggressive with random specials
-    if(abs > 90){
-      boss.vx = boss.facing * (baseSpeed+1.2);
-      boss.state="walk";
+  // Fighters
+  function createFighter(name, x, face=1, isCPU=false) {
+    return {
+      name,
+      x,
+      y: world.floorY - 42,
+      vx: 0,
+      vy: 0,
+      w: 18,
+      h: 42,
+      face, // 1 right, -1 left
+      hp: 100,
+      stamina: 100,
+      grounded: true,
+      crouch: false,
+      attacking: false,
+      attackTimer: 0,
+      attackType: null,
+      hitCooldown: 0,
+      dashCooldown: 0,
+      stunned: 0,
+      isCPU,
+      state: "idle",
+      animT: 0,
+      combo: 0,
+      comboTimer: 0,
+      special: 0, // ultimate bar
+    };
+  }
+
+  const player = createFighter("PLAYER", 220, 1, false);
+  const enemy = createFighter("CPU", 520, -1, true);
+
+  // Sprite generation placeholders
+  let playerSprite = null;
+
+  // CPU sprite is just a custom pixel guy
+  function drawEnemySprite(x, y, scale, anim, facing) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(facing, 1);
+
+    // body
+    ctx.fillStyle = "#222";
+    ctx.fillRect(-6, -30, 12, 18);
+
+    // head
+    ctx.fillStyle = "#d7b48a";
+    ctx.fillRect(-5, -42, 10, 10);
+
+    // eyes
+    ctx.fillStyle = "#000";
+    ctx.fillRect(-3, -38, 2, 2);
+    ctx.fillRect(1, -38, 2, 2);
+
+    // arms (animated)
+    const armSwing = Math.sin(anim * 10) * 2;
+    ctx.fillStyle = "#444";
+    ctx.fillRect(-10, -28 + armSwing, 4, 12);
+    ctx.fillRect(6, -28 - armSwing, 4, 12);
+
+    // legs (animated)
+    const legSwing = Math.sin(anim * 10 + 1.2) * 2;
+    ctx.fillStyle = "#111";
+    ctx.fillRect(-6, -12 + legSwing, 5, 12);
+    ctx.fillRect(1, -12 - legSwing, 5, 12);
+
+    ctx.restore();
+  }
+
+  // Player sprite draw with procedural limb movement
+  function drawPlayerSprite(spriteCanvas, x, y, anim, facing, state) {
+    if (!spriteCanvas) return;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(facing, 1);
+
+    // shadow
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(-10, 2, 20, 4);
+    ctx.globalAlpha = 1;
+
+    // Limb animation offsets
+    const walkSwing = Math.sin(anim * 10) * 2;
+    const walkSwing2 = Math.sin(anim * 10 + 1.8) * 2;
+
+    // base sprite position
+    let bodyY = -42;
+    if (state === "jump") bodyY -= 2;
+    if (state === "crouch") bodyY += 10;
+    if (state === "hit") bodyY += 1;
+
+    // legs (fake pixel legs)
+    ctx.fillStyle = "#111";
+    ctx.fillRect(-6, -12 + walkSwing, 5, 12);
+    ctx.fillRect(1, -12 - walkSwing, 5, 12);
+
+    // arms
+    ctx.fillStyle = "#222";
+    if (state === "punch") {
+      ctx.fillRect(6, -30, 10, 4);
+      ctx.fillRect(-10, -28, 4, 12);
+    } else if (state === "kick") {
+      ctx.fillRect(6, -28, 4, 12);
+      ctx.fillRect(-10, -28 + walkSwing2, 4, 12);
     } else {
-      boss.vx *= 0.65;
-      if(boss.atkCD<=0){
-        boss.atkCD = 30 - boss.phase*5;
-        let roll = Math.random();
-        if(roll < 0.4) boss.state="punch";
-        else if(roll < 0.75) boss.state="kick";
-        else boss.state="upper";
-      }
+      ctx.fillRect(6, -28 - walkSwing2, 4, 12);
+      ctx.fillRect(-10, -28 + walkSwing2, 4, 12);
+    }
 
-      if(boss.phase===2 && boss.specialCD<=0 && Math.random()<0.06){
-        boss.specialCD = 100;
-        boss.state="ulti";
-        speak("PATLAK METEOR!");
-        screenShake(14);
+    // draw pixelated body from your photo
+    ctx.drawImage(spriteCanvas, -16, bodyY, 32, 48);
 
-        // meteor rain
-        for(let i=0;i<6;i++){
-          projectiles.push({
-            x: player.x + rand(-250,250),
-            y: -50 - i*30,
-            vx: rand(-1.2,1.2),
-            vy: rand(5.5,7.5),
-            w: 14,
-            h: 14,
-            dmg: 14,
-            color:"#ff0033",
-            type:"meteor"
-          });
+    // dash glow
+    if (state === "dash") {
+      ctx.globalAlpha = 0.25;
+      ctx.fillStyle = "#00ccff";
+      ctx.fillRect(-18, -46, 36, 52);
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+  }
+
+  // Attack hitboxes
+  function getAttackBox(f) {
+    if (!f.attacking) return null;
+
+    if (f.attackType === "punch") {
+      return {
+        x: f.x + (f.face === 1 ? 12 : -18),
+        y: f.y + 10,
+        w: 16,
+        h: 12
+      };
+    }
+
+    if (f.attackType === "kick") {
+      return {
+        x: f.x + (f.face === 1 ? 10 : -20),
+        y: f.y + 18,
+        w: 20,
+        h: 10
+      };
+    }
+
+    return null;
+  }
+
+  function getHurtBox(f) {
+    return { x: f.x - f.w/2, y: f.y, w: f.w, h: f.h };
+  }
+
+  function showCenterText(txt, time=700) {
+    centerText.textContent = txt;
+    centerText.style.opacity = "1";
+    setTimeout(() => {
+      centerText.style.opacity = "0";
+    }, time);
+  }
+
+  function applyDamage(attacker, target, dmg, knock) {
+    if (target.hitCooldown > 0) return;
+
+    target.hp -= dmg;
+    target.hp = Math.max(0, target.hp);
+
+    target.vx += knock * attacker.face;
+    target.stunned = 12;
+    target.hitCooldown = 16;
+
+    attacker.special = clamp(attacker.special + 8, 0, 100);
+
+    doShake(3);
+    spawnHitSparks(target.x, target.y + 18, attacker.face);
+
+    // combo system
+    attacker.combo++;
+    attacker.comboTimer = 50;
+  }
+
+  // CPU AI
+  function cpuThink(cpu, target) {
+    if (cpu.stunned > 0) return;
+
+    const dist = target.x - cpu.x;
+    cpu.face = dist > 0 ? 1 : -1;
+
+    const absDist = Math.abs(dist);
+
+    // approach
+    if (absDist > 60) {
+      cpu.vx += cpu.face * 0.18;
+      cpu.state = "walk";
+    } else {
+      // attack randomly
+      if (!cpu.attacking && cpu.attackTimer <= 0) {
+        const r = Math.random();
+        if (r < 0.65) {
+          cpu.attacking = true;
+          cpu.attackType = "punch";
+          cpu.attackTimer = 16;
+          cpu.state = "punch";
+        } else {
+          cpu.attacking = true;
+          cpu.attackType = "kick";
+          cpu.attackTimer = 22;
+          cpu.state = "kick";
         }
+      } else {
+        cpu.state = "idle";
+      }
+
+      // small backstep sometimes
+      if (Math.random() < 0.02) {
+        cpu.vx -= cpu.face * 1.4;
       }
     }
-  }
 
-  // boss attack execution timing
-  if(boss.state==="punch" && boss.atkCD === 20){
-    if(overlaps(attackBox(boss,"punch"), playerBox())){
-      takeDamage(player, 12 + boss.phase*2, boss.facing*7);
-      spark(player.x+player.w/2, player.y+20);
+    // occasional jump
+    if (cpu.grounded && Math.random() < 0.006) {
+      cpu.vy = -4.2;
+      cpu.grounded = false;
+      cpu.state = "jump";
+    }
+
+    // dash escape if low HP
+    if (cpu.hp < 35 && cpu.dashCooldown <= 0 && Math.random() < 0.02) {
+      cpu.vx -= cpu.face * 4.8;
+      cpu.dashCooldown = 70;
+      cpu.state = "dash";
     }
   }
 
-  if(boss.state==="kick" && boss.atkCD === 25){
-    if(overlaps(attackBox(boss,"kick"), playerBox())){
-      takeDamage(player, 16 + boss.phase*2, boss.facing*9);
-      spark(player.x+player.w/2, player.y+20);
-    }
-  }
+  // Game loop
+  let camX = 0;
+  let gameOver = false;
+  let fightStarted = false;
+  let introTimer = 70;
 
-  if(boss.state==="upper" && boss.atkCD === 20){
-    if(overlaps(attackBox(boss,"upper"), playerBox())){
-      takeDamage(player, 18 + boss.phase*3, boss.facing*11);
-      player.vy = -10;
-      spark(player.x+player.w/2, player.y+10, "#ffcc00", "#cc00ff");
-    }
-  }
+  showCenterText("ROUND 1", 900);
+  setTimeout(() => showCenterText("FIGHT!", 800), 900);
 
-  // physics
-  boss.vy += gravity;
-  boss.x += boss.vx;
-  boss.y += boss.vy;
+  function updateFighter(f) {
+    f.animT += 0.016;
 
-  if(boss.y > groundY){
-    boss.y = groundY;
-    boss.vy = 0;
-  }
+    if (f.comboTimer > 0) f.comboTimer--;
+    else f.combo = 0;
 
-  boss.x = clamp(boss.x, 40, canvas.width-80);
-}
+    if (f.hitCooldown > 0) f.hitCooldown--;
+    if (f.dashCooldown > 0) f.dashCooldown--;
+    if (f.stunned > 0) f.stunned--;
 
-let projectiles = [];
-let poisonClouds = [];
+    // gravity
+    f.vy += 0.18;
 
-function updateProjectiles(){
-  projectiles.forEach(p=>{
-    p.x += p.vx;
-    if(p.vy) p.y += p.vy;
+    // friction
+    f.vx *= 0.86;
 
-    // player hit
-    const pb = playerBox();
-    const pr = {x:p.x, y:p.y, w:p.w, h:p.h};
-    if(overlaps(pb, pr)){
-      takeDamage(player, p.dmg, (p.vx||0)*1.5);
-      spark(player.x+player.w/2, player.y+20, p.color, "#fff");
-      p.dead = true;
-    }
+    // clamp speed
+    f.vx = clamp(f.vx, -4.5, 4.5);
 
-    if(p.x < -100 || p.x > canvas.width+100 || p.y > canvas.height+200){
-      p.dead = true;
-    }
-  });
+    // move
+    f.x += f.vx;
+    f.y += f.vy;
 
-  projectiles = projectiles.filter(p=>!p.dead);
-}
-
-function drawProjectiles(){
-  projectiles.forEach(p=>{
-    rect(p.x, p.y, p.w, p.h, p.color);
-    ctx.globalAlpha = 0.2;
-    rect(p.x-4, p.y-4, p.w+8, p.h+8, p.color);
-    ctx.globalAlpha = 1;
-  });
-}
-
-function updatePoison(){
-  poisonClouds.forEach(c=>{
-    c.life--;
-    c.r = 25 + Math.sin(c.life*0.08)*6;
-
-    // damage over time if inside
-    let px = player.x + player.w/2;
-    let py = player.y + 30;
-    let dx = px - c.x;
-    let dy = py - c.y;
-    let dist = Math.sqrt(dx*dx+dy*dy);
-
-    if(dist < c.r){
-      if(frameCount % 20 === 0){
-        takeDamage(player, 4, 0);
-        spark(player.x+player.w/2, player.y+20, "#55ff55", "#bbbbbb");
-      }
-    }
-  });
-
-  poisonClouds = poisonClouds.filter(c=>c.life>0);
-}
-
-function drawPoison(){
-  poisonClouds.forEach(c=>{
-    ctx.globalAlpha = 0.15;
-    rect(c.x-c.r, c.y-c.r, c.r*2, c.r*2, "#55ff55");
-    ctx.globalAlpha = 1;
-  });
-}
-
-function playerControls(){
-  player.animT++;
-  player.hitstun = Math.max(0, player.hitstun-1);
-  player.atkCD = Math.max(0, player.atkCD-1);
-  player.dashCD = Math.max(0, player.dashCD-1);
-  player.invuln = Math.max(0, player.invuln-1);
-
-  player.block = keys["shift"];
-
-  if(player.hitstun > 0){
-    player.state = "hurt";
-  } else {
-    let speed = 3.4;
-
-    if(keys["a"]){
-      player.vx = -speed;
-      player.facing = -1;
-      player.state = "walk";
-    } else if(keys["d"]){
-      player.vx = speed;
-      player.facing = 1;
-      player.state = "walk";
+    // floor collision
+    if (f.y >= world.floorY - f.h) {
+      f.y = world.floorY - f.h;
+      f.vy = 0;
+      f.grounded = true;
     } else {
-      player.vx *= 0.75;
-      if(player.atkCD <= 0) player.state = player.block ? "block" : "idle";
+      f.grounded = false;
     }
 
-    if(keys["w"] && player.y >= groundY){
-      player.vy = -12.5;
+    // arena bounds
+    f.x = clamp(f.x, 30, world.w - 30);
+
+    // handle attacks
+    if (f.attackTimer > 0) {
+      f.attackTimer--;
+      if (f.attackTimer === 0) {
+        f.attacking = false;
+        f.attackType = null;
+        if (f.state === "punch" || f.state === "kick") f.state = "idle";
+      }
+    }
+  }
+
+  function handleInput() {
+    if (!fightStarted) return;
+    if (player.stunned > 0) return;
+
+    const left = keys["a"];
+    const right = keys["d"];
+    const jump = keys["w"];
+    const crouch = keys["s"];
+    const punch = keys["j"];
+    const kick = keys["k"];
+    const dash = keys["l"];
+
+    player.crouch = crouch;
+
+    if (left) {
+      player.vx -= 0.35;
+      player.face = -1;
+      if (player.grounded) player.state = "walk";
+    }
+    if (right) {
+      player.vx += 0.35;
+      player.face = 1;
+      if (player.grounded) player.state = "walk";
+    }
+
+    if (!left && !right && player.grounded && !player.attacking && !player.crouch) {
+      if (player.state !== "punch" && player.state !== "kick") {
+        player.state = "idle";
+      }
+    }
+
+    if (player.crouch && player.grounded) {
+      player.state = "crouch";
+    }
+
+    if (jump && player.grounded && !player.crouch) {
+      player.vy = -4.8;
+      player.grounded = false;
       player.state = "jump";
     }
 
-    // dash
-    if(keys[" "] && player.dashCD <= 0){
+    if (dash && player.dashCooldown <= 0) {
+      player.vx += player.face * 5.2;
+      player.dashCooldown = 60;
       player.state = "dash";
-      player.vx = player.facing * 13;
-      player.invuln = 10;
-      player.dashCD = 55;
-      screenShake(4);
-      spark(player.x+player.w/2, player.y+40, "#00ccff", "#fff");
+      doShake(1.5);
     }
 
-    // attacks
-    if(keys["j"] && player.atkCD <= 0){
+    if (punch && !player.attacking && player.attackTimer <= 0 && !player.crouch) {
+      player.attacking = true;
+      player.attackType = "punch";
+      player.attackTimer = 14;
       player.state = "punch";
-      player.atkCD = 16;
-      if(overlaps(attackBox(player,"punch"), bossBox())){
-        takeDamage(boss, 11, player.facing*8, true);
-        spark(boss.x+boss.w/2, boss.y+20);
-      }
     }
 
-    if(keys["k"] && player.atkCD <= 0){
+    if (kick && !player.attacking && player.attackTimer <= 0 && !player.crouch) {
+      player.attacking = true;
+      player.attackType = "kick";
+      player.attackTimer = 22;
       player.state = "kick";
-      player.atkCD = 24;
-      if(overlaps(attackBox(player,"kick"), bossBox())){
-        takeDamage(boss, 15, player.facing*11, true);
-        spark(boss.x+boss.w/2, boss.y+20);
-      }
-    }
-
-    if(keys["l"] && player.ulti >= 100 && player.atkCD <= 0){
-      player.state = "ulti";
-      player.atkCD = 55;
-      player.ulti = 0;
-      speak("ÇARRAK ULTI!");
-      screenShake(16);
-
-      if(overlaps(attackBox(player,"ulti"), bossBox())){
-        takeDamage(boss, 42, player.facing*18, true);
-        spark(boss.x+boss.w/2, boss.y+10, "#00ccff", "#cc00ff");
-      }
     }
   }
 
-  // physics
-  player.vy += gravity;
-  player.x += player.vx;
-  player.y += player.vy;
+  function checkHits() {
+    const pAtk = getAttackBox(player);
+    const eAtk = getAttackBox(enemy);
 
-  if(player.y > groundY){
-    player.y = groundY;
-    player.vy = 0;
+    const pHurt = getHurtBox(player);
+    const eHurt = getHurtBox(enemy);
+
+    if (pAtk && rectsOverlap(pAtk, eHurt)) {
+      const dmg = player.attackType === "kick" ? 14 : 9;
+      const knock = player.attackType === "kick" ? 3.8 : 2.4;
+      applyDamage(player, enemy, dmg, knock);
+      player.attackTimer = 0;
+      player.attacking = false;
+    }
+
+    if (eAtk && rectsOverlap(eAtk, pHurt)) {
+      const dmg = enemy.attackType === "kick" ? 13 : 8;
+      const knock = enemy.attackType === "kick" ? 3.4 : 2.0;
+      applyDamage(enemy, player, dmg, knock);
+      enemy.attackTimer = 0;
+      enemy.attacking = false;
+    }
   }
 
-  player.x = clamp(player.x, 40, canvas.width-80);
-}
-
-function drawBackground(){
-  rect(0,0,canvas.width,canvas.height,"#070707");
-
-  // city blocks
-  for(let i=0;i<40;i++){
-    let bx = i*30;
-    let h = 40 + (i%8)*18;
-    rect(bx, 290-h, 26, h, "rgba(255,255,255,0.05)");
+  function updateCamera() {
+    const focusX = (player.x + enemy.x) / 2;
+    camX = lerp(camX, focusX - LOGICAL_W/2, 0.08);
+    camX = clamp(camX, 0, world.w - LOGICAL_W);
   }
 
-  // floor
-  rect(0, groundY+60, canvas.width, canvas.height, "#030303");
-  rect(0, groundY+55, canvas.width, 10, "#1f1f1f");
+  function drawBackground() {
+    // sky
+    ctx.fillStyle = "#090b12";
+    ctx.fillRect(0, 0, LOGICAL_W, LOGICAL_H);
 
-  // neon strips
-  for(let i=0;i<22;i++){
-    rect(i*50, groundY+58, 20, 2, "rgba(255,0,51,0.25)");
+    // far city
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = "#0f1a2b";
+    for (let i=0; i<40; i++) {
+      const bx = (i * 40 - (camX * 0.2)) % 600;
+      const h = 20 + (i % 5) * 10;
+      ctx.fillRect(bx, 70 - h, 22, h);
+    }
+    ctx.globalAlpha = 1;
+
+    // ground
+    ctx.fillStyle = "#141414";
+    ctx.fillRect(0, world.floorY, LOGICAL_W, LOGICAL_H - world.floorY);
+
+    // floor lines
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = "#ffffff";
+    for (let i=0; i<40; i++) {
+      ctx.fillRect(((i*40 - camX) % 500), world.floorY + 12, 24, 1);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  text("ÇARRAKVERSE - PIXEL BOSS RUSH", 20, 30, 18, "#ffcc00");
-}
+  function drawParticles() {
+    for (let i=particles.length-1; i>=0; i--) {
+      const p = particles[i];
+      p.vy += 0.14;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life--;
 
-function updateHUD(){
-  pHPBar.style.width = (player.hp/player.maxHp*100) + "%";
-  bHPBar.style.width = (boss.hp/boss.maxHp*100) + "%";
-  pULTIBar.style.width = (player.ulti/player.maxUlti*100) + "%";
+      ctx.globalAlpha = Math.max(0, p.life / 30);
+      ctx.fillStyle = (Math.random() < 0.5) ? "#ffffff" : "#ffdd55";
+      ctx.fillRect(p.x - camX, p.y, 2, 2);
 
-  pInfo.textContent = `Combo: ${player.combo} | Skor: ${Math.floor(player.score)}`;
-  bInfo.textContent = `Phase: ${boss.phase}`;
-  bossNameEl.textContent = "BOSS: " + boss.name;
-}
-
-function draw(){
-  let sx=0, sy=0;
-  if(shake>0){
-    sx = rand(-shake,shake);
-    sy = rand(-shake,shake);
-    shake *= 0.85;
-    if(shake < 0.5) shake = 0;
+      if (p.life <= 0) particles.splice(i, 1);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  ctx.save();
-  ctx.translate(sx, sy);
-
-  drawBackground();
-
-  drawPoison();
-  drawProjectiles();
-
-  // fighters
-  drawFighter(player.x, player.y, player.w, player.h,
-    "#00ccff", "#ffcc00",
-    player.facing,
-    player.state,
-    player.animT,
-    "ÇARRAK"
-  );
-
-  drawFighter(boss.x, boss.y, boss.w, boss.h,
-    boss.colorBody, boss.colorHead,
-    boss.facing,
-    boss.state,
-    boss.animT,
-    boss.name
-  );
-
-  drawParticles();
-  ctx.restore();
-}
-
-let frameCount = 0;
-let levelIndex = 0;
-let playing = false;
-let startTime = 0;
-
-function showMenu(){
-  overlay.style.display = "block";
-  overlay.innerHTML = `
-    <div style="font-size:34px; font-weight:bold;">ÇARRAKVERSE</div>
-    <div class="tiny">Pixel Boss Rush | Kara mizah absürt evren</div>
-    <br>
-    <div class="tiny">
-      Kontroller:<br>
-      <b>A/D</b> yürü - <b>W</b> zıpla - <b>J</b> yumruk - <b>K</b> tekme<br>
-      <b>Shift</b> block - <b>Space</b> dash - <b>L</b> ulti
-    </div>
-    <div class="btnRow">
-      <button onclick="startStory()">Hikaye Modu</button>
-      <button onclick="startBossRush()">Boss Rush</button>
-      <button onclick="showLeaderboard()">Leaderboard</button>
-    </div>
-    <div class="tiny" style="margin-top:14px; opacity:0.7;">
-      Not: Bu evren tamamen hayal ürünüdür. Her şey absürt parodidir.
-    </div>
-  `;
-}
-
-function showLeaderboard(){
-  const data = JSON.parse(localStorage.getItem("carrak_leaderboard") || "[]");
-  let html = `<div style="font-size:28px;font-weight:bold;">🏆 Patlaklık Leaderboard</div><br>`;
-
-  if(data.length === 0){
-    html += `<div class="tiny">Henüz kimse destan yazmamış...</div>`;
-  } else {
-    html += `<div style="font-size:14px;text-align:left;display:inline-block;">`;
-    data.slice(0,10).forEach((x,i)=>{
-      html += `${i+1}. <b>${x.name}</b> | Skor: ${x.score} | Süre: ${x.time}s<br>`;
-    });
-    html += `</div>`;
+  function drawHUD() {
+    hpP.style.width = (player.hp) + "%";
+    hpE.style.width = (enemy.hp) + "%";
   }
 
-  html += `
-    <div class="btnRow">
-      <button onclick="showMenu()">Geri</button>
-      <button onclick="resetLeaderboard()">Sıfırla</button>
-    </div>
-  `;
+  function drawFighters() {
+    // Determine draw positions
+    const px = player.x - camX;
+    const ex = enemy.x - camX;
 
-  overlay.style.display="block";
-  overlay.innerHTML = html;
-}
+    // draw enemy
+    drawEnemySprite(ex, enemy.y + enemy.h, 1, enemy.animT, enemy.face);
 
-function resetLeaderboard(){
-  localStorage.removeItem("carrak_leaderboard");
-  showLeaderboard();
-}
+    // draw player (your pixel sprite)
+    drawPlayerSprite(playerSprite, px, player.y + player.h, player.animT, player.face, player.state);
 
-function introLevel(){
-  playing = false;
-  boss = createBoss(levelIndex);
-
-  overlay.style.display="block";
-  overlay.innerHTML = `
-    <div style="font-size:26px;font-weight:bold;">${boss.name}</div>
-    <div class="tiny" style="white-space:pre-line; margin-top:10px;">
-${boss.intro}
-    </div>
-    <div class="btnRow">
-      <button onclick="beginFight()">Dövüş Başlat</button>
-      <button onclick="showMenu()">Menü</button>
-    </div>
-  `;
-
-  // boss talks
-  setTimeout(()=>{
-    speak(boss.voiceLines[Math.floor(Math.random()*boss.voiceLines.length)]);
-  }, 500);
-}
-
-function beginFight(){
-  overlay.style.display="none";
-  playing = true;
-
-  // reset player partially
-  player.x = 220;
-  player.y = groundY;
-  player.vx = 0;
-  player.vy = 0;
-  player.combo = 0;
-  player.hitstun = 0;
-
-  boss.x = 700;
-  boss.y = groundY;
-  boss.vx = 0;
-  boss.vy = 0;
-
-  projectiles = [];
-  poisonClouds = [];
-}
-
-function startStory(){
-  levelIndex = 0;
-  player.hp = player.maxHp;
-  player.ulti = 0;
-  player.score = 0;
-  startTime = Date.now();
-  introLevel();
-}
-
-function startBossRush(){
-  levelIndex = 0;
-  player.hp = player.maxHp;
-  player.ulti = 0;
-  player.score = 0;
-  startTime = Date.now();
-  introLevel();
-}
-
-function winBoss(){
-  playing = false;
-  levelIndex++;
-
-  if(levelIndex >= BOSSES.length){
-    const endTime = Math.floor((Date.now() - startTime)/1000);
-
-    overlay.style.display="block";
-    overlay.innerHTML = `
-      <div style="font-size:32px;font-weight:bold;">🏆 ÇARRAKVERSE TAMAMLANDI</div>
-      <div class="tiny" style="margin-top:10px;">
-        Skor: <b>${Math.floor(player.score)}</b><br>
-        Süre: <b>${endTime}s</b><br><br>
-        Finalde patlaklık çöktü.<br>
-        Çarrak tarihe geçti.
-      </div>
-      <div class="btnRow">
-        <button onclick="saveScore(${endTime})">Skoru Kaydet</button>
-        <button onclick="showMenu()">Menü</button>
-      </div>
-    `;
-    speak("Zafer. Çarrakverse artık senin.");
-    return;
+    // hitboxes debug (optional)
+    // ctx.strokeStyle = "red";
+    // const hb = getAttackBox(player);
+    // if (hb) ctx.strokeRect(hb.x - camX, hb.y, hb.w, hb.h);
   }
 
-  overlay.style.display="block";
-  overlay.innerHTML = `
-    <div style="font-size:28px;font-weight:bold;">✅ Boss düştü!</div>
-    <div class="tiny">Yeni bölüm açıldı...</div>
-    <div class="btnRow">
-      <button onclick="introLevel()">Devam Et</button>
-      <button onclick="showMenu()">Menü</button>
-    </div>
-  `;
+  function checkWinLose() {
+    if (gameOver) return;
 
-  speak("Devam et. Patlaklık daha bitmedi.");
-}
+    if (player.hp <= 0) {
+      gameOver = true;
+      fightStarted = false;
+      showCenterText("YOU LOSE", 1400);
+      setTimeout(() => location.reload(), 1600);
+    }
 
-function saveScore(timeSec){
-  let name = prompt("Leaderboard ismin ne olsun? (örn: KralÇarrak)");
-  if(!name) name = "AnonÇarrak";
+    if (enemy.hp <= 0) {
+      gameOver = true;
+      fightStarted = false;
+      showCenterText("YOU WIN!", 1400);
 
-  let data = JSON.parse(localStorage.getItem("carrak_leaderboard") || "[]");
-  data.push({
-    name,
-    score: Math.floor(player.score),
-    time: timeSec
-  });
+      wins++;
+      localStorage.setItem("pspFighterWins", wins.toString());
+      winsUI.textContent = "Wins: " + wins;
 
-  data.sort((a,b)=>{
-    // score desc, time asc
-    if(b.score !== a.score) return b.score - a.score;
-    return a.time - b.time;
-  });
-
-  localStorage.setItem("carrak_leaderboard", JSON.stringify(data));
-  showLeaderboard();
-}
-
-function loseGame(){
-  playing = false;
-  overlay.style.display="block";
-  overlay.innerHTML = `
-    <div style="font-size:32px;font-weight:bold;">💀 ÇARRAK DÜŞTÜ</div>
-    <div class="tiny" style="margin-top:10px;">
-      Boss: <b>${boss.name}</b><br>
-      Skor: <b>${Math.floor(player.score)}</b><br><br>
-      Çarrak yere düştü ama cringe asla ölmez...
-    </div>
-    <div class="btnRow">
-      <button onclick="introLevel()">Tekrar Dene</button>
-      <button onclick="showMenu()">Menü</button>
-    </div>
-  `;
-  speak("Çarrak... yenildin.");
-}
-
-function update(){
-  frameCount++;
-
-  if(!boss){
-    return;
+      setTimeout(() => location.reload(), 1600);
+    }
   }
 
-  if(!playing){
-    updateHUD();
-    return;
+  function updateIntro() {
+    if (introTimer > 0) {
+      introTimer--;
+      if (introTimer === 0) {
+        fightStarted = true;
+      }
+    }
   }
 
-  playerControls();
-  bossAI();
+  function update() {
+    handleInput();
 
-  updateProjectiles();
-  updatePoison();
-  updateParticles();
+    if (fightStarted) {
+      cpuThink(enemy, player);
+    }
 
-  // boss voice random taunt
-  if(frameCount % 360 === 0 && Math.random() < 0.35){
-    speak(boss.voiceLines[Math.floor(Math.random()*boss.voiceLines.length)]);
+    updateFighter(player);
+    updateFighter(enemy);
+
+    // Face each other automatically
+    if (fightStarted) {
+      player.face = (enemy.x > player.x) ? 1 : -1;
+      enemy.face = (player.x > enemy.x) ? 1 : -1;
+    }
+
+    if (fightStarted) {
+      checkHits();
+    }
+
+    updateCamera();
+    drawHUD();
+    checkWinLose();
+    updateIntro();
   }
 
-  // passive ulti regen
-  if(frameCount % 40 === 0){
-    player.ulti = clamp(player.ulti + 2, 0, player.maxUlti);
+  function render() {
+    // screen shake
+    let sx = 0, sy = 0;
+    if (shake > 0) {
+      sx = (Math.random() * shake - shake/2);
+      sy = (Math.random() * shake - shake/2);
+      shake *= 0.85;
+      if (shake < 0.05) shake = 0;
+    }
+
+    ctx.save();
+    ctx.translate(sx, sy);
+
+    drawBackground();
+    drawParticles();
+    drawFighters();
+
+    // floor highlight
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = "#00ccff";
+    ctx.fillRect(0, world.floorY, LOGICAL_W, 2);
+    ctx.globalAlpha = 1;
+
+    // combo text
+    if (player.combo >= 2 && player.comboTimer > 0) {
+      ctx.fillStyle = "white";
+      ctx.font = "12px monospace";
+      ctx.fillText(player.combo + " HIT COMBO!", 10, 80);
+    }
+
+    ctx.restore();
   }
 
-  // win/lose checks
-  if(player.hp <= 0){
-    loseGame();
+  function loop() {
+    update();
+    render();
+    requestAnimationFrame(loop);
   }
 
-  if(boss.hp <= 0){
-    winBoss();
-  }
+  playerImg.onload = () => {
+    playerSprite = makePixelSprite(playerImg, 32, 48);
+    loop();
+  };
 
-  updateHUD();
-}
+  playerImg.onerror = () => {
+    showCenterText("player.png bulunamadı!", 1800);
+    loop();
+  };
 
-function loop(){
-  draw();
-  update();
-  requestAnimationFrame(loop);
-}
-
-showMenu();
-loop();
+})();
 </script>
-
 </body>
 </html>
