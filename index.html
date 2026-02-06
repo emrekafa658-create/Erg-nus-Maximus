@@ -1,562 +1,423 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ERGÜNUS MAXIMUS: Patlaklık Savaşları</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: "Trebuchet MS", Arial, sans-serif;
-      background: radial-gradient(circle at top, #1b1b1b, #000);
-      color: #fff;
-      overflow-x: hidden;
-    }
-
-    header {
-      text-align: center;
-      padding: 30px 10px;
-      background: linear-gradient(90deg, #ff0033, #6600ff);
-      border-bottom: 3px solid rgba(255,255,255,0.2);
-    }
-
-    header h1 {
-      margin: 0;
-      font-size: 2.2rem;
-      letter-spacing: 2px;
-      text-shadow: 0 0 10px rgba(0,0,0,0.8);
-    }
-
-    header p {
-      margin: 8px 0 0;
-      opacity: 0.85;
-      font-size: 1rem;
-    }
-
-    .container {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 20px;
-      display: grid;
-      grid-template-columns: 1fr 350px;
-      gap: 20px;
-    }
-
-    .game-area {
-      background: rgba(255,255,255,0.05);
-      border: 2px solid rgba(255,255,255,0.12);
-      border-radius: 14px;
-      padding: 20px;
-      position: relative;
-      overflow: hidden;
-      min-height: 520px;
-      box-shadow: 0 0 30px rgba(0,0,0,0.6);
-    }
-
-    .sidebar {
-      background: rgba(255,255,255,0.05);
-      border: 2px solid rgba(255,255,255,0.12);
-      border-radius: 14px;
-      padding: 20px;
-      box-shadow: 0 0 30px rgba(0,0,0,0.6);
-    }
-
-    .stat {
-      margin-bottom: 12px;
-      padding: 12px;
-      border-radius: 10px;
-      background: rgba(0,0,0,0.35);
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .stat strong {
-      color: #ffcc00;
-    }
-
-    button {
-      width: 100%;
-      margin-top: 10px;
-      padding: 12px;
-      font-size: 1rem;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      background: linear-gradient(90deg, #ff0033, #ff6600);
-      color: white;
-      font-weight: bold;
-      transition: 0.2s;
-    }
-
-    button:hover {
-      transform: scale(1.03);
-      filter: brightness(1.1);
-    }
-
-    button:active {
-      transform: scale(0.98);
-    }
-
-    .mini-btn {
-      background: linear-gradient(90deg, #00ccff, #6600ff);
-    }
-
-    .danger-btn {
-      background: linear-gradient(90deg, #00ff66, #00cc00);
-      color: #000;
-    }
-
-    .log {
-      margin-top: 15px;
-      height: 220px;
-      overflow-y: auto;
-      background: rgba(0,0,0,0.4);
-      border-radius: 10px;
-      padding: 10px;
-      font-size: 0.9rem;
-      border: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .log div {
-      padding: 4px 0;
-      border-bottom: 1px dashed rgba(255,255,255,0.1);
-    }
-
-    .arena {
-      margin-top: 15px;
-      width: 100%;
-      height: 340px;
-      border-radius: 14px;
-      border: 2px solid rgba(255,255,255,0.12);
-      background: linear-gradient(180deg, rgba(255,0,51,0.15), rgba(0,0,0,0.6));
-      position: relative;
-      overflow: hidden;
-    }
-
-    .npc {
-      position: absolute;
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      background: radial-gradient(circle at top, #ffcc00, #ff0033);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 3rem;
-      font-weight: bold;
-      box-shadow: 0 0 30px rgba(255,0,0,0.5);
-      cursor: pointer;
-      user-select: none;
-      transition: 0.15s;
-    }
-
-    .npc:hover {
-      transform: scale(1.05) rotate(2deg);
-    }
-
-    .npc:active {
-      transform: scale(0.9) rotate(-5deg);
-    }
-
-    .npc-name {
-      position: absolute;
-      bottom: 5px;
-      width: 100%;
-      text-align: center;
-      font-size: 0.75rem;
-      opacity: 0.9;
-      text-shadow: 0 0 10px black;
-    }
-
-    .floating-text {
-      position: absolute;
-      color: #ffcc00;
-      font-weight: bold;
-      animation: floatUp 1s forwards;
-      text-shadow: 0 0 10px rgba(0,0,0,0.8);
-      pointer-events: none;
-    }
-
-    @keyframes floatUp {
-      from { opacity: 1; transform: translateY(0); }
-      to { opacity: 0; transform: translateY(-60px); }
-    }
-
-    .boss {
-      position: absolute;
-      right: 15px;
-      top: 35px;
-      width: 140px;
-      height: 140px;
-      border-radius: 20px;
-      background: linear-gradient(45deg, #00ccff, #6600ff);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-size: 3.5rem;
-      box-shadow: 0 0 40px rgba(102,0,255,0.6);
-      cursor: pointer;
-      user-select: none;
-      border: 2px solid rgba(255,255,255,0.2);
-      transition: 0.15s;
-    }
-
-    .boss:hover {
-      transform: scale(1.04);
-    }
-
-    .boss:active {
-      transform: scale(0.95);
-    }
-
-    .boss .npc-name {
-      bottom: -22px;
-      font-size: 0.8rem;
-    }
-
-    .footer {
-      text-align: center;
-      padding: 20px;
-      opacity: 0.7;
-      font-size: 0.85rem;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 999px;
-      font-size: 0.8rem;
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.15);
-      margin-top: 6px;
-    }
-
-    .alert {
-      background: rgba(255,0,0,0.18);
-      padding: 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,0,0,0.4);
-      margin-top: 10px;
-      font-size: 0.9rem;
-      line-height: 1.3;
-    }
-
-    .credits {
-      margin-top: 12px;
-      font-size: 0.85rem;
-      opacity: 0.75;
-    }
-
-    .progress-wrap {
-      margin-top: 8px;
-      width: 100%;
-      height: 12px;
-      background: rgba(255,255,255,0.08);
-      border-radius: 999px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .progress-bar {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #00ff66, #ffcc00, #ff0033);
-      transition: width 0.2s;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ergünus Maximus Arena Fighter</title>
+<style>
+  body { margin:0; background:#000; color:#fff; font-family:Arial; overflow:hidden; }
+  canvas { display:block; margin:0 auto; background:#111; image-rendering: pixelated; }
+  .hud {
+    position: absolute; left: 0; top: 0; width: 100%;
+    display:flex; justify-content:space-between;
+    padding:10px; font-size:14px;
+    text-shadow:0 0 5px #000;
+  }
+  .bar {
+    width: 300px; height: 18px;
+    border:2px solid #fff; background:#222;
+    position: relative;
+  }
+  .fill {
+    height:100%; width:100%;
+    background: linear-gradient(90deg, #00ff66, #ffcc00, #ff0033);
+  }
+  .centerText {
+    position:absolute; top:50%; left:50%;
+    transform:translate(-50%,-50%);
+    font-size:28px; font-weight:bold;
+    text-shadow:0 0 10px #000;
+    text-align:center;
+    pointer-events:none;
+  }
+</style>
 </head>
 <body>
 
-<header>
-  <h1>ERGÜNUS MAXIMUS</h1>
-  <p>Patlaklık Savaşları: Absürt Arena Simülasyonu</p>
-</header>
-
-<div class="container">
-  <div class="game-area">
-    <h2>🏟️ Arena</h2>
-    <p style="opacity:0.85; margin-top:0;">
-      NPC'lere tıkla, patlaklık puanı topla, Boss'u indir ve efsanevi “Çarrak Tahtı”nı kazan.
-    </p>
-
-    <div class="arena" id="arena">
-      <div class="npc" id="npc1" style="left: 60px; top: 90px;">
-        🤡
-        <div class="npc-name">Ergünus</div>
-      </div>
-
-      <div class="npc" id="npc2" style="left: 240px; top: 170px;">
-        🥴
-        <div class="npc-name">Maximus</div>
-      </div>
-
-      <div class="npc" id="npc3" style="left: 140px; top: 220px;">
-        😭
-        <div class="npc-name">Çarrakus</div>
-      </div>
-
-      <div class="boss" id="boss">
-        👑
-        <div class="npc-name">BOSS: Patlak Kral</div>
-      </div>
-    </div>
-
-    <div class="alert" id="eventBox">
-      📢 <b>Güncel Haber:</b> Ergünus Maximus yine “ben aslında çok havalıyım” diyip Discord'da 7 kişi tarafından görmezden gelindi.
-    </div>
-
+<div class="hud">
+  <div>
+    <b>ERGÜNUS MAXIMUS</b>
+    <div class="bar"><div id="pHP" class="fill"></div></div>
   </div>
 
-  <div class="sidebar">
-    <h2>📊 Statlar</h2>
-
-    <div class="stat">🧠 Zeka Seviyesi: <strong id="iq">12</strong> <span class="badge">"şüpheli"</span></div>
-    <div class="stat">💀 Patlaklık Puanı: <strong id="score">0</strong></div>
-    <div class="stat">🔥 Utanç Enerjisi: <strong id="cringe">0</strong></div>
-    <div class="stat">🍟 Tost Parası: <strong id="money">0</strong>₺</div>
-    <div class="stat">
-      👑 Boss Canı:
-      <strong id="bossHpText">100</strong> / 100
-      <div class="progress-wrap">
-        <div class="progress-bar" id="bossHpBar"></div>
-      </div>
-    </div>
-
-    <button onclick="buyUpgrade()">🛒 Yükseltme Satın Al (30₺)</button>
-    <button class="mini-btn" onclick="summonDrama()">🎭 Drama Çağır</button>
-    <button class="danger-btn" onclick="ultimateMove()">☠️ ULTİ: ÇARRAK DARBE PLANI</button>
-
-    <div class="log" id="log"></div>
-
-    <div class="credits">
-      <b>Not:</b> Bu oyun tamamen absürt bir evren, tamamen uydurma karakterler içerir.<br/>
-      <span style="opacity:0.7;">(Ama ruhu gerçek olabilir.)</span>
-    </div>
+  <div style="text-align:right;">
+    <b>BOSS: PATLAK KRAL</b>
+    <div class="bar"><div id="eHP" class="fill"></div></div>
   </div>
 </div>
 
-<div class="footer">
-  Made with 💀 + 🤡 + enerji içeceği | Ergünus Maximus Universe © 666
-</div>
+<div class="centerText" id="centerText">WASD Hareket<br>J Yumruk | K Tekme | Space Dash</div>
+
+<canvas id="game" width="960" height="540"></canvas>
 
 <script>
-  let score = 0;
-  let cringe = 0;
-  let money = 0;
-  let iq = 12;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
 
-  let bossHp = 100;
-  let bossMaxHp = 100;
+const pHPBar = document.getElementById("pHP");
+const eHPBar = document.getElementById("eHP");
+const centerText = document.getElementById("centerText");
 
-  let clickPower = 1;
-  let dramaMultiplier = 1;
-  let ultReady = true;
+ctx.imageSmoothingEnabled = false;
 
-  const logBox = document.getElementById("log");
-  const scoreEl = document.getElementById("score");
-  const cringeEl = document.getElementById("cringe");
-  const moneyEl = document.getElementById("money");
-  const iqEl = document.getElementById("iq");
+const keys = {};
+window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
-  const bossHpText = document.getElementById("bossHpText");
-  const bossHpBar = document.getElementById("bossHpBar");
+function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
-  const eventBox = document.getElementById("eventBox");
-  const arena = document.getElementById("arena");
+function rect(x,y,w,h,c){
+  ctx.fillStyle = c;
+  ctx.fillRect(x,y,w,h);
+}
 
-  function log(msg) {
-    const div = document.createElement("div");
-    div.innerHTML = msg;
-    logBox.prepend(div);
+function pixelText(text, x, y, size=14, color="#fff"){
+  ctx.fillStyle = color;
+  ctx.font = size + "px monospace";
+  ctx.fillText(text, x, y);
+}
+
+function hitSpark(x,y){
+  for(let i=0;i<6;i++){
+    particles.push({
+      x, y,
+      vx:(Math.random()*4-2),
+      vy:(Math.random()*-3),
+      life: 18,
+      color: Math.random()<0.5 ? "#ffcc00" : "#ff0033"
+    });
+  }
+}
+
+let particles = [];
+
+const gravity = 0.7;
+const groundY = 430;
+
+const player = {
+  name:"Ergünus Maximus",
+  x: 250, y: groundY,
+  vx:0, vy:0,
+  w: 40, h: 60,
+  hp: 100, maxHp:100,
+  facing: 1,
+  state: "idle",
+  animFrame: 0,
+  animTimer: 0,
+  attackCooldown: 0,
+  dashCooldown: 0,
+  hitstun: 0,
+  combo: 0
+};
+
+const enemy = {
+  name:"Patlak Kral",
+  x: 700, y: groundY,
+  vx:0, vy:0,
+  w: 46, h: 66,
+  hp: 160, maxHp:160,
+  facing: -1,
+  state: "idle",
+  animFrame: 0,
+  animTimer: 0,
+  attackCooldown: 0,
+  hitstun: 0,
+  rage: 0
+};
+
+function attackBox(fighter, type){
+  let range = type === "kick" ? 45 : 35;
+  let height = type === "kick" ? 25 : 20;
+  let ax = fighter.facing === 1 ? fighter.x + fighter.w : fighter.x - range;
+  let ay = fighter.y + 20;
+  return {x:ax, y:ay, w:range, h:height};
+}
+
+function overlaps(a,b){
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function drawFighter(f, palette, isPlayer){
+  // shadow
+  rect(f.x-5, f.y+f.h, f.w+10, 6, "rgba(0,0,0,0.5)");
+
+  // body (pixel art block style)
+  let bodyColor = palette.body;
+  let headColor = palette.head;
+  let detail = palette.detail;
+
+  // legs
+  rect(f.x+6, f.y+42, 10, 18, bodyColor);
+  rect(f.x+24, f.y+42, 10, 18, bodyColor);
+
+  // torso
+  rect(f.x+6, f.y+18, 28, 28, bodyColor);
+
+  // head
+  rect(f.x+10, f.y+2, 20, 18, headColor);
+
+  // eyes
+  rect(f.x + (f.facing===1?20:14), f.y+8, 3, 3, "#000");
+  rect(f.x + (f.facing===1?26:20), f.y+8, 3, 3, "#000");
+
+  // mouth
+  rect(f.x+16, f.y+14, 10, 2, "#000");
+
+  // aura glow when rage
+  if(!isPlayer && enemy.rage > 60){
+    ctx.globalAlpha = 0.25;
+    rect(f.x-10, f.y-10, f.w+20, f.h+20, "#ff0033");
+    ctx.globalAlpha = 1;
   }
 
-  function updateUI() {
-    scoreEl.textContent = score;
-    cringeEl.textContent = cringe;
-    moneyEl.textContent = money;
-    iqEl.textContent = iq;
+  // arms (animated)
+  let armOffset = 0;
+  if(f.state === "punch") armOffset = 10;
+  if(f.state === "kick") armOffset = 14;
+  if(f.state === "dash") armOffset = 6;
 
-    bossHpText.textContent = bossHp;
-    let percent = (bossHp / bossMaxHp) * 100;
-    bossHpBar.style.width = (100 - percent) + "%";
+  if(f.facing === 1){
+    rect(f.x+32, f.y+22, 12+armOffset, 8, detail);
+  } else {
+    rect(f.x- (12+armOffset), f.y+22, 12+armOffset, 8, detail);
   }
 
-  function floatingText(x, y, text) {
-    const ft = document.createElement("div");
-    ft.className = "floating-text";
-    ft.style.left = x + "px";
-    ft.style.top = y + "px";
-    ft.textContent = text;
-    arena.appendChild(ft);
+  // name tag
+  pixelText(f.name, f.x-10, f.y-10, 12, "#aaa");
+}
 
-    setTimeout(() => ft.remove(), 1000);
+function damage(target, amount){
+  target.hp -= amount;
+  if(target.hp < 0) target.hp = 0;
+}
+
+function enemyAI(){
+  if(enemy.hitstun > 0) return;
+
+  let dist = player.x - enemy.x;
+  let abs = Math.abs(dist);
+
+  enemy.facing = dist > 0 ? 1 : -1;
+
+  // rage increases when losing
+  enemy.rage = (1 - enemy.hp/enemy.maxHp) * 100;
+
+  // move toward player
+  if(abs > 110){
+    enemy.vx = enemy.facing * (2.2 + enemy.rage*0.03);
+    enemy.state = "walk";
+  } else {
+    enemy.vx *= 0.8;
+    if(enemy.attackCooldown <= 0){
+      // random attack choice
+      if(Math.random() < 0.55){
+        enemy.state = "punch";
+        enemy.attackCooldown = 35;
+      } else {
+        enemy.state = "kick";
+        enemy.attackCooldown = 45;
+      }
+    } else {
+      enemy.state = "idle";
+    }
   }
+}
 
-  const randomInsults = [
-    "NPC gibi dolanıyor...",
-    "Aura: -999",
-    "Kanka bi sus artık...",
-    "Bu ne cringe ya...",
-    "Beyin: offline",
-    "Kendini sigma sanıyor...",
-    "Ego var, kalite yok...",
-    "Discord moderatörü vibe'ı...",
-    "Oyun oynamıyor, oyun oynanıyor...",
-    "Aşırı patlak hareket detected..."
-  ];
+function doAttack(attacker, defender, type){
+  const box = attackBox(attacker, type);
+  const defBox = {x:defender.x, y:defender.y, w:defender.w, h:defender.h};
 
-  const randomNews = [
-    "📢 <b>Güncel Haber:</b> Ergünus Maximus, 'benim çevrem geniş' deyip 2 kişiyi etiketledi: biri annesi, biri yanlış hesap.",
-    "📢 <b>Breaking:</b> Patlak Kral, TikTok'ta motivasyon videosu çekti. Yorumlar: 'abi sen kimsin?'",
-    "📢 <b>Şok:</b> Çarrakus, sabah 8'de 'bugün değişiyorum' dedi. Saat 8:05'te uyudu.",
-    "📢 <b>Son Dakika:</b> Ergünus, 'ben toxic değilim' dedi. 3 saniye sonra toxic oldu.",
-    "📢 <b>Manşet:</b> Patlaklık oranı %300 arttı. Bilim insanları: 'sebebi Ergünus.'"
-  ];
+  if(overlaps(box, defBox)){
+    let base = type==="kick" ? 14 : 10;
+    let crit = Math.random() < 0.15;
+    let dmg = crit ? base*2 : base;
 
-  function clickNPC(e) {
-    const gain = Math.floor((clickPower * dramaMultiplier) + Math.random() * 2);
-    score += gain;
-    cringe += Math.floor(Math.random() * 3) + 1;
+    damage(defender, dmg);
+    defender.hitstun = 12;
+    defender.vx += attacker.facing * 6;
+    hitSpark(defender.x + defender.w/2, defender.y + 20);
 
-    if (Math.random() < 0.25) {
-      money += 5;
-      log("🍟 Ergünus yerde 5₺ buldu ama 'bu benim değil' deyip cebine koydu.");
+    if(attacker === player){
+      player.combo++;
+    } else {
+      player.combo = 0;
     }
 
-    const insult = randomInsults[Math.floor(Math.random() * randomInsults.length)];
-    log("🤡 TIK! +" + gain + " patlaklık | <i>" + insult + "</i>");
+    // screen shake
+    shake = 8;
 
-    floatingText(e.offsetX + 20, e.offsetY + 20, "+" + gain);
+    return true;
+  }
+  return false;
+}
 
-    if (Math.random() < 0.2) {
-      eventBox.innerHTML = randomNews[Math.floor(Math.random() * randomNews.length)];
-    }
+let shake = 0;
+let gameOver = false;
 
-    updateUI();
+function update(){
+  if(gameOver) return;
+
+  // hide intro after action
+  if(keys["w"]||keys["a"]||keys["s"]||keys["d"]||keys["j"]||keys["k"]||keys[" "]) {
+    centerText.style.display = "none";
   }
 
-  function hitBoss(e) {
-    const dmg = Math.floor((clickPower * dramaMultiplier) + Math.random() * 5);
-    bossHp -= dmg;
-    score += dmg * 2;
-    cringe += 2;
+  // cooldowns
+  player.attackCooldown = Math.max(0, player.attackCooldown-1);
+  player.dashCooldown = Math.max(0, player.dashCooldown-1);
+  enemy.attackCooldown = Math.max(0, enemy.attackCooldown-1);
 
-    log("👑 Boss'a vuruldu! -" + dmg + " HP | Boss: 'KANKA DUR LAN'");
+  player.hitstun = Math.max(0, player.hitstun-1);
+  enemy.hitstun = Math.max(0, enemy.hitstun-1);
 
-    floatingText(e.offsetX + 200, e.offsetY + 30, "-" + dmg);
+  // player controls
+  if(player.hitstun <= 0){
+    let speed = 3.2;
 
-    if (bossHp <= 0) {
-      bossHp = 0;
-      log("💀 <b>BOSS DÜŞTÜ!</b> Ergünus Maximus 'Çarrak Tahtı'na oturdu ama sandalye kırıldı.");
-      log("🏆 <b>KAZANDIN:</b> +500 tost parası ve ömür boyu utanç.");
-      money += 500;
-      cringe += 50;
-      score += 250;
+    if(keys["a"]){ player.vx = -speed; player.facing=-1; player.state="walk"; }
+    else if(keys["d"]){ player.vx = speed; player.facing=1; player.state="walk"; }
+    else player.vx *= 0.75;
 
-      setTimeout(() => {
-        bossMaxHp += 50;
-        bossHp = bossMaxHp;
-        log("👑 Boss geri döndü! Yeni form: <b>Patlak Kral Ultra Cringe Edition</b> ("+bossMaxHp+" HP)");
-        eventBox.innerHTML = "⚠️ <b>Uyarı:</b> Boss yeni form açtı. Artık daha patlak ve daha özgüvenli.";
-        updateUI();
-      }, 2000);
+    if(keys["w"] && player.y >= groundY){ player.vy = -12; player.state="jump"; }
+
+    // dash
+    if(keys[" "] && player.dashCooldown <= 0){
+      player.state="dash";
+      player.vx = player.facing * 12;
+      player.dashCooldown = 55;
+      shake = 4;
     }
 
-    updateUI();
+    // punch
+    if(keys["j"] && player.attackCooldown <= 0){
+      player.state="punch";
+      player.attackCooldown = 18;
+      doAttack(player, enemy, "punch");
+    }
+
+    // kick
+    if(keys["k"] && player.attackCooldown <= 0){
+      player.state="kick";
+      player.attackCooldown = 28;
+      doAttack(player, enemy, "kick");
+    }
   }
 
-  function buyUpgrade() {
-    if (money < 30) {
-      log("❌ Paran yetmedi. Ergünus yine 'benim kartta var' dedi ama kart babasının çıktı.");
-      return;
-    }
+  // enemy AI
+  enemyAI();
 
-    money -= 30;
-    clickPower += 1;
-    iq += Math.random() < 0.3 ? 0 : 1;
-
-    log("🛒 Yükseltme alındı! Tıklama gücü arttı. Ergünus 'ben büyüdüm' dedi ama hala LOL oynuyor.");
-    updateUI();
+  // enemy attacks
+  if(enemy.state==="punch" && enemy.attackCooldown === 30){
+    doAttack(enemy, player, "punch");
+  }
+  if(enemy.state==="kick" && enemy.attackCooldown === 38){
+    doAttack(enemy, player, "kick");
   }
 
-  function summonDrama() {
-    const boost = Math.floor(Math.random() * 4) + 2;
-    dramaMultiplier = boost;
+  // physics
+  player.vy += gravity;
+  enemy.vy += gravity;
 
-    log("🎭 DRAMA ÇAĞRILDI! Çarpan x" + boost + " oldu.");
-    log("📢 Ergünus Maximus: 'Ben aslında çok yalnızım ama güçlü gözüküyorum.'");
+  player.x += player.vx;
+  player.y += player.vy;
 
-    eventBox.innerHTML = "🎭 <b>Drama Modu:</b> Ortam gerildi. Ego yükseldi, kalite düşüyor...";
+  enemy.x += enemy.vx;
+  enemy.y += enemy.vy;
 
-    setTimeout(() => {
-      dramaMultiplier = 1;
-      log("🎭 Drama bitti. Ergünus 'ben zaten şakaydı' diyip kaçtı.");
-      eventBox.innerHTML = randomNews[Math.floor(Math.random() * randomNews.length)];
-      updateUI();
-    }, 8000);
+  // ground collision
+  if(player.y > groundY){ player.y = groundY; player.vy=0; }
+  if(enemy.y > groundY){ enemy.y = groundY; enemy.vy=0; }
 
-    updateUI();
+  // bounds
+  player.x = clamp(player.x, 40, canvas.width-80);
+  enemy.x = clamp(enemy.x, 40, canvas.width-80);
+
+  // update hp bars
+  pHPBar.style.width = (player.hp/player.maxHp*100) + "%";
+  eHPBar.style.width = (enemy.hp/enemy.maxHp*100) + "%";
+
+  // particles
+  particles.forEach(p=>{
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.2;
+    p.life--;
+  });
+  particles = particles.filter(p=>p.life>0);
+
+  // game end
+  if(player.hp <= 0){
+    gameOver = true;
+    centerText.style.display = "block";
+    centerText.innerHTML = "💀 ERGÜNUS MAXIMUS YIKILDI<br><span style='font-size:18px;'>Boss: 'ben zaten kazandım' dedi.</span><br><br>Sayfayı yenile";
   }
 
-  function ultimateMove() {
-    if (!ultReady) {
-      log("⏳ ULTİ hazır değil! Ergünus 'ultim var' dedi ama cooldown var.");
-      return;
-    }
+  if(enemy.hp <= 0){
+    gameOver = true;
+    centerText.style.display = "block";
+    centerText.innerHTML = "🏆 ZAFER! PATLAK KRAL DÜŞTÜ<br><span style='font-size:18px;'>Ergünus: 'ben zaten sigma'yım' dedi.</span><br><br>Sayfayı yenile";
+  }
+}
 
-    ultReady = false;
+function drawBackground(){
+  // sky
+  rect(0,0,canvas.width,canvas.height,"#0b0b0b");
 
-    log("☠️ <b>ULTİ AKTİF:</b> ÇARRAK DARBE PLANI BAŞLADI!");
-    log("💥 Ergünus Maximus tüm cringe enerjisini topluyor...");
-    eventBox.innerHTML = "☠️ <b>ULTİ:</b> Ergünus Maximus 'ben farklıyım' cümlesini 9 kere tekrarladı.";
-
-    let totalDamage = Math.floor(Math.random() * 30) + 25;
-    bossHp -= totalDamage;
-    score += totalDamage * 5;
-    cringe += 20;
-
-    if (bossHp < 0) bossHp = 0;
-
-    setTimeout(() => {
-      log("💥 Boss'a " + totalDamage + " hasar vuruldu! Boss ağlıyor ama ego yapıyor.");
-      updateUI();
-    }, 500);
-
-    setTimeout(() => {
-      ultReady = true;
-      log("⚡ ULTİ tekrar hazır. Ergünus Maximus: 'Ben zaten OP'yim.'");
-    }, 15000);
-
-    updateUI();
+  // fake pixel city
+  for(let i=0;i<40;i++){
+    let bx = i*30;
+    let h = 50 + Math.random()*120;
+    rect(bx, 280-h, 26, h, "rgba(255,255,255,0.06)");
   }
 
-  document.getElementById("npc1").addEventListener("click", clickNPC);
-  document.getElementById("npc2").addEventListener("click", clickNPC);
-  document.getElementById("npc3").addEventListener("click", clickNPC);
+  // floor
+  rect(0, groundY+60, canvas.width, canvas.height, "#050505");
+  rect(0, groundY+55, canvas.width, 10, "#222");
 
-  document.getElementById("boss").addEventListener("click", hitBoss);
+  // neon lines
+  for(let i=0;i<20;i++){
+    rect(i*50, groundY+58, 20, 2, "rgba(255,0,51,0.3)");
+  }
 
-  updateUI();
+  pixelText("ARENA: ÇARRAK DİYARI", 20, 30, 18, "#ffcc00");
+  pixelText("Combo: " + player.combo, 20, 55, 14, "#aaa");
+}
 
-  // pasif gelir: "patlaklık kendiliğinden yayılır"
-  setInterval(() => {
-    score += 1;
-    cringe += 1;
+function draw(){
+  let sx = 0, sy = 0;
+  if(shake > 0){
+    sx = Math.random()*shake - shake/2;
+    sy = Math.random()*shake - shake/2;
+    shake *= 0.85;
+    if(shake < 0.5) shake = 0;
+  }
 
-    if (Math.random() < 0.15) {
-      money += 1;
-      log("🪙 Ergünus Maximus, yerden 1₺ aldı. Sonra 'ben zenginim' dedi.");
-    }
+  ctx.save();
+  ctx.translate(sx, sy);
 
-    if (Math.random() < 0.10) {
-      eventBox.innerHTML = randomNews[Math.floor(Math.random() * randomNews.length)];
-    }
+  drawBackground();
 
-    updateUI();
-  }, 3000);
+  drawFighter(player, {body:"#00ccff", head:"#ffcc00", detail:"#fff"}, true);
+  drawFighter(enemy, {body:"#ff0033", head:"#bbb", detail:"#000"}, false);
 
+  // particles
+  particles.forEach(p=>{
+    ctx.globalAlpha = p.life/18;
+    rect(p.x, p.y, 4, 4, p.color);
+    ctx.globalAlpha = 1;
+  });
+
+  ctx.restore();
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
 </script>
 
 </body>
 </html>
-
